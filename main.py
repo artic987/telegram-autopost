@@ -17,6 +17,7 @@ STRING_SESSION = os.environ["TG_STRING_SESSION"]
 
 DELAY_MIN = int(os.getenv("DELAY_MIN_SECONDS", "45"))
 DELAY_MAX = int(os.getenv("DELAY_MAX_SECONDS", "75"))
+VERIFY_AFTER_SECONDS = int(os.getenv("VERIFY_AFTER_SECONDS", "5"))
 
 
 def load_groups():
@@ -53,6 +54,8 @@ async def main():
     print(f"Групп в этом круге: {len(groups)}")
 
     sent = 0
+    verified = 0
+    deleted = 0
     skipped = 0
     failed = 0
 
@@ -61,9 +64,36 @@ async def main():
             label = title or target
 
             try:
-                await client.send_message(target, text)
+                entity = await client.get_entity(target)
+                real_title = getattr(entity, "title", None) or label
+                real_username = getattr(entity, "username", None)
+                real_id = getattr(entity, "id", None)
+                print(
+                    f"[{i}/{len(groups)}] Цель: {real_title} | "
+                    f"@{real_username if real_username else '-'} | id={real_id}"
+                )
+
+                msg = await client.send_message(entity, text)
                 sent += 1
-                print(f"[{i}/{len(groups)}] OK: {label}")
+                print(f"[{i}/{len(groups)}] Telegram принял сообщение: {label}; message_id={msg.id}")
+
+                await asyncio.sleep(VERIFY_AFTER_SECONDS)
+                check = await client.get_messages(entity, ids=msg.id)
+                if check is None:
+                    deleted += 1
+                    print(
+                        f"[{i}/{len(groups)}] УДАЛЕНО ПОСЛЕ ОТПРАВКИ: {label}; "
+                        "вероятно, сообщение удалил бот/модерация группы"
+                    )
+                else:
+                    verified += 1
+                    link = None
+                    if real_username:
+                        link = f"https://t.me/{real_username}/{msg.id}"
+                    print(
+                        f"[{i}/{len(groups)}] ПОДТВЕРЖДЕНО: сообщение всё ещё существует"
+                        + (f" | {link}" if link else "")
+                    )
 
             except errors.SlowModeWaitError as e:
                 skipped += 1
@@ -94,7 +124,10 @@ async def main():
     finally:
         await client.disconnect()
 
-    print(f"Итог: успешно={sent}, пропущено={skipped}, ошибок={failed}")
+    print(
+        f"Итог: Telegram принял={sent}, подтверждено={verified}, "
+        f"удалено после отправки={deleted}, пропущено={skipped}, ошибок={failed}"
+    )
 
 
 if __name__ == "__main__":
