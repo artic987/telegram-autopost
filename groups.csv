@@ -1,20 +1,20 @@
 enabled,entity,title,cadence
 1,@PoputchikRFDNR,Попутчики РФ ДНР,daily
-1,@popytchik_lnr,Попутчики ЛНР ДНР,frequent
-1,@passenger_transport_transfer,Пассажирские перевозки трансфер,frequent
-1,@poputchiki_24,ПОПУТЧИКИ_24,frequent
-1,@poputchiki_edemvmeste,Попутчики Едем вместе,frequent
-1,@peresecheniegranitsi,Перевозки Попутчики,frequent
-1,@otvezut,Чат водителей и попутчиков,frequent
-1,@taxi_puti_rf_kz,Заказы ПУТИ Межгород,frequent
-1,@piter_popytchiki,Попутчики Санкт-Петербург,frequent
-1,@adspbchat,Объявления СПб чат,frequent
-1,@baraholkasppb,Барахолка СПб,frequent
-1,@obyavleniyalnr,Объявления ЛНР,frequent
-1,@reklama_dnr_chat,Реклама ДНР чат,frequent
-1,@chatTorezBaraholka,Торез Барахолка,frequent
-1,@obyavalnr,Объявления ЛНР крупная,frequent
-1,@prodaidnr,Продай ДНР,frequent
-1,@donetsk_don,Донецк объявления и услуги,frequent
-1,@kmoskve,Москва поездки,frequent
-1,@vezdespb,Санкт-Петербург поездки,frequent
+1,@popytchik_lnr,Попутчики ЛНР ДНР,daily
+1,@passenger_transport_transfer,Пассажирские перевозки трансфер,daily
+1,@poputchiki_24,ПОПУТЧИКИ_24,daily
+1,@poputchiki_edemvmeste,Попутчики Едем вместе,daily
+1,@peresecheniegranitsi,Перевозки Попутчики,daily
+1,@otvezut,Чат водителей и попутчиков,daily
+1,@taxi_puti_rf_kz,Заказы ПУТИ Межгород,daily
+1,@piter_popytchiki,Попутчики Санкт-Петербург,daily
+1,@adspbchat,Объявления СПб чат,daily
+1,@baraholkasppb,Барахолка СПб,daily
+1,@obyavleniyalnr,Объявления ЛНР,daily
+1,@reklama_dnr_chat,Реклама ДНР чат,daily
+1,@chatTorezBaraholka,Торез Барахолка,daily
+1,@obyavalnr,Объявления ЛНР крупная,daily
+1,@prodaidnr,Продай ДНР,daily
+1,@donetsk_don,Донецк объявления и услуги,daily
+1,@kmoskve,Москва поездки,daily
+1,@vezdespb,Санкт-Петербург поездки,daily
