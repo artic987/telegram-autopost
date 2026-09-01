@@ -1,8 +1,20 @@
-enabled,entity,title
-1,@PoputchikRFDNR,Попутчики РФ ДНР
-1,@taxidonbas,Такси Донбасс
-1,@piter_maskvataxi_taksi7,Питер Москва Такси
-1,@maskva_ish_kvartira_elonlar7,Москва объявления
-1,@piter_ish_elonlar_maskva,Питер Москва объявления
-1,@rabota_restaran_povarN1,Работа ресторан повар
-1,@taxidonbasa,Такси Донбасса
+enabled,entity,title,cadence
+1,@PoputchikRFDNR,Попутчики РФ ДНР,daily
+1,@popytchik_lnr,Попутчики ЛНР ДНР,frequent
+1,@passenger_transport_transfer,Пассажирские перевозки трансфер,frequent
+1,@poputchiki_24,ПОПУТЧИКИ_24,frequent
+1,@poputchiki_edemvmeste,Попутчики Едем вместе,frequent
+1,@peresecheniegranitsi,Перевозки Попутчики,frequent
+1,@otvezut,Чат водителей и попутчиков,frequent
+1,@taxi_puti_rf_kz,Заказы ПУТИ Межгород,frequent
+1,@piter_popytchiki,Попутчики Санкт-Петербург,frequent
+1,@adspbchat,Объявления СПб чат,frequent
+1,@baraholkasppb,Барахолка СПб,frequent
+1,@obyavleniyalnr,Объявления ЛНР,frequent
+1,@reklama_dnr_chat,Реклама ДНР чат,frequent
+1,@chatTorezBaraholka,Торез Барахолка,frequent
+1,@obyavalnr,Объявления ЛНР крупная,frequent
+1,@prodaidnr,Продай ДНР,frequent
+1,@donetsk_don,Донецк объявления и услуги,frequent
+1,@kmoskve,Москва поездки,frequent
+1,@vezdespb,Санкт-Петербург поездки,frequent
