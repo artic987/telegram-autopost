@@ -18,15 +18,22 @@ STRING_SESSION = os.environ["TG_STRING_SESSION"]
 DELAY_MIN = int(os.getenv("DELAY_MIN_SECONDS", "45"))
 DELAY_MAX = int(os.getenv("DELAY_MAX_SECONDS", "75"))
 VERIFY_AFTER_SECONDS = int(os.getenv("VERIFY_AFTER_SECONDS", "5"))
+RUN_CADENCE = os.getenv("RUN_CADENCE", "frequent").strip().lower()
+RUN_ATTEMPT = int(os.getenv("GITHUB_RUN_ATTEMPT", "1"))
 
 
-def load_groups():
+def load_groups(cadence):
     groups = []
     with GROUPS_CSV.open("r", newline="", encoding="utf-8-sig") as f:
         for row in csv.DictReader(f):
             enabled = (row.get("enabled") or "").strip().lower()
             if enabled not in {"1", "true", "yes", "да", "y"}:
                 continue
+
+            row_cadence = (row.get("cadence") or "frequent").strip().lower()
+            if row_cadence != cadence:
+                continue
+
             entity = (row.get("entity") or "").strip()
             title = (row.get("title") or "").strip()
             if entity:
@@ -35,13 +42,22 @@ def load_groups():
 
 
 async def main():
+    if RUN_CADENCE not in {"frequent", "daily"}:
+        raise RuntimeError(f"Неизвестный RUN_CADENCE: {RUN_CADENCE}")
+
+    # Защита от повторной отправки daily-групп при ручном rerun того же GitHub Actions run.
+    if RUN_CADENCE == "daily" and RUN_ATTEMPT > 1:
+        print(f"Daily-запуск, attempt={RUN_ATTEMPT}: повторная отправка отключена.")
+        return
+
     text = MESSAGE_FILE.read_text(encoding="utf-8").strip()
     if not text:
         raise RuntimeError("message.txt пустой")
 
-    groups = load_groups()
+    groups = load_groups(RUN_CADENCE)
     if not groups:
-        raise RuntimeError("В groups.csv нет включённых групп")
+        print(f"Для режима {RUN_CADENCE} включённых групп нет.")
+        return
 
     client = TelegramClient(StringSession(STRING_SESSION), API_ID, API_HASH)
     await client.connect()
@@ -51,6 +67,7 @@ async def main():
 
     me = await client.get_me()
     print(f"Аккаунт: @{me.username or me.id}")
+    print(f"Режим: {RUN_CADENCE}")
     print(f"Групп в этом круге: {len(groups)}")
 
     sent = 0
@@ -97,7 +114,10 @@ async def main():
 
             except errors.SlowModeWaitError as e:
                 skipped += 1
-                print(f"[{i}/{len(groups)}] SLOW MODE: {label}; ждать ещё {e.seconds} сек. Пропускаю до следующего запуска.")
+                print(
+                    f"[{i}/{len(groups)}] SLOW MODE: {label}; ждать ещё {e.seconds} сек. "
+                    "Пропускаю до следующего запуска."
+                )
 
             except errors.FloodWaitError as e:
                 print(f"[{i}/{len(groups)}] FLOOD WAIT: Telegram требует ждать {e.seconds} сек.")
