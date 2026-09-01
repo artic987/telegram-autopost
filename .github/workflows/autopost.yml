@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "7,37 * * * *"
+    - cron: "7 9 * * *"
 
 permissions:
   contents: read
@@ -15,7 +16,7 @@ concurrency:
 jobs:
   post:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 28
 
     steps:
       - name: Checkout
@@ -37,4 +38,5 @@ jobs:
           TG_STRING_SESSION: ${{ secrets.TG_STRING_SESSION }}
           DELAY_MIN_SECONDS: "45"
           DELAY_MAX_SECONDS: "75"
+          RUN_CADENCE: ${{ github.event.schedule == '7 9 * * *' && 'daily' || 'frequent' }}
         run: python main.py
