@@ -2,8 +2,10 @@ name: Telegram Autopost
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
   schedule:
-    - cron: "7,37 * * * *"
     - cron: "7 9 * * *"
 
 permissions:
@@ -38,5 +40,5 @@ jobs:
           TG_STRING_SESSION: ${{ secrets.TG_STRING_SESSION }}
           DELAY_MIN_SECONDS: "45"
           DELAY_MAX_SECONDS: "75"
-          RUN_CADENCE: ${{ github.event.schedule == '7 9 * * *' && 'daily' || 'frequent' }}
+          RUN_CADENCE: "daily"
         run: python main.py
