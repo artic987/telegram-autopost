@@ -4,7 +4,7 @@ import os
 import random
 from pathlib import Path
 
-from telethon import TelegramClient, errors
+from telethon import TelegramClient, errors, functions
 from telethon.sessions import StringSession
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -18,7 +18,8 @@ STRING_SESSION = os.environ["TG_STRING_SESSION"]
 DELAY_MIN = int(os.getenv("DELAY_MIN_SECONDS", "45"))
 DELAY_MAX = int(os.getenv("DELAY_MAX_SECONDS", "75"))
 VERIFY_AFTER_SECONDS = int(os.getenv("VERIFY_AFTER_SECONDS", "5"))
-RUN_CADENCE = os.getenv("RUN_CADENCE", "frequent").strip().lower()
+RUN_CADENCE = os.getenv("RUN_CADENCE", "daily").strip().lower()
+RUN_MODE = os.getenv("RUN_MODE", "post").strip().lower()
 RUN_ATTEMPT = int(os.getenv("GITHUB_RUN_ATTEMPT", "1"))
 
 
@@ -30,7 +31,7 @@ def load_groups(cadence):
             if enabled not in {"1", "true", "yes", "да", "y"}:
                 continue
 
-            row_cadence = (row.get("cadence") or "frequent").strip().lower()
+            row_cadence = (row.get("cadence") or "daily").strip().lower()
             if row_cadence != cadence:
                 continue
 
@@ -41,18 +42,73 @@ def load_groups(cadence):
     return groups
 
 
+async def join_channel(client, entity, label, prefix=""):
+    try:
+        await client(functions.channels.JoinChannelRequest(entity))
+        print(f"{prefix}ВСТУПИЛ: {label}")
+        return "joined"
+    except errors.UserAlreadyParticipantError:
+        print(f"{prefix}УЖЕ СОСТОИМ: {label}")
+        return "already"
+    except errors.InviteRequestSentError:
+        print(f"{prefix}ЗАЯВКА НА ВСТУПЛЕНИЕ ОТПРАВЛЕНА: {label}; ждём одобрения администратора")
+        return "requested"
+    except errors.FloodWaitError:
+        raise
+    except Exception as e:
+        print(f"{prefix}НЕ УДАЛОСЬ ВСТУПИТЬ: {label}: {type(e).__name__}: {e}")
+        return "failed"
+
+
+async def try_join_linked_discussion(client, entity, label, prefix=""):
+    if not getattr(entity, "broadcast", False):
+        return None
+
+    try:
+        full = await client(functions.channels.GetFullChannelRequest(entity))
+        linked_id = getattr(full.full_chat, "linked_chat_id", None)
+        if not linked_id:
+            return None
+
+        linked = next(
+            (chat for chat in full.chats if getattr(chat, "id", None) == linked_id),
+            None,
+        )
+        if linked is None:
+            print(f"{prefix}Есть связанный чат id={linked_id}, но Telegram не вернул его объект")
+            return None
+
+        linked_title = getattr(linked, "title", None) or f"discussion {linked_id}"
+        linked_username = getattr(linked, "username", None)
+        print(
+            f"{prefix}Связанный чат: {linked_title} | "
+            f"@{linked_username if linked_username else '-'} | id={linked_id}"
+        )
+        await join_channel(client, linked, f"{label} → {linked_title}", prefix=prefix)
+        return linked
+    except errors.FloodWaitError:
+        raise
+    except Exception as e:
+        print(f"{prefix}Не удалось проверить связанный чат: {label}: {type(e).__name__}: {e}")
+        return None
+
+
 async def main():
     if RUN_CADENCE not in {"frequent", "daily"}:
         raise RuntimeError(f"Неизвестный RUN_CADENCE: {RUN_CADENCE}")
+    if RUN_MODE not in {"post", "join"}:
+        raise RuntimeError(f"Неизвестный RUN_MODE: {RUN_MODE}")
 
-    # Защита от повторной отправки daily-групп при ручном rerun того же GitHub Actions run.
-    if RUN_CADENCE == "daily" and RUN_ATTEMPT > 1:
+    # Повторный rerun ежедневной публикации не должен дублировать посты.
+    if RUN_MODE == "post" and RUN_CADENCE == "daily" and RUN_ATTEMPT > 1:
         print(f"Daily-запуск, attempt={RUN_ATTEMPT}: повторная отправка отключена.")
         return
 
-    text = MESSAGE_FILE.read_text(encoding="utf-8").strip()
-    if not text:
-        raise RuntimeError("message.txt пустой")
+    text = ""
+    if RUN_MODE == "post":
+        text = MESSAGE_FILE.read_text(encoding="utf-8").strip()
+        if not text:
+            raise RuntimeError("message.txt пустой")
 
     groups = load_groups(RUN_CADENCE)
     if not groups:
@@ -67,18 +123,21 @@ async def main():
 
     me = await client.get_me()
     print(f"Аккаунт: @{me.username or me.id}")
-    print(f"Режим: {RUN_CADENCE}")
-    print(f"Групп в этом круге: {len(groups)}")
+    print(f"Режим: {RUN_MODE}; периодичность: {RUN_CADENCE}")
+    print(f"Групп: {len(groups)}")
 
     sent = 0
     verified = 0
     deleted = 0
     skipped = 0
     failed = 0
+    joined = 0
+    requested = 0
 
     try:
         for i, (target, title) in enumerate(groups, start=1):
             label = title or target
+            prefix = f"[{i}/{len(groups)}] "
 
             try:
                 entity = await client.get_entity(target)
@@ -86,20 +145,33 @@ async def main():
                 real_username = getattr(entity, "username", None)
                 real_id = getattr(entity, "id", None)
                 print(
-                    f"[{i}/{len(groups)}] Цель: {real_title} | "
+                    f"{prefix}Цель: {real_title} | "
                     f"@{real_username if real_username else '-'} | id={real_id}"
                 )
 
+                join_result = await join_channel(client, entity, label, prefix=prefix)
+                if join_result == "joined":
+                    joined += 1
+                elif join_result == "requested":
+                    requested += 1
+
+                # Для каналов дополнительно вступаем в связанный discussion-чат, если он есть.
+                await try_join_linked_discussion(client, entity, label, prefix=prefix)
+
+                if RUN_MODE == "join":
+                    await asyncio.sleep(3)
+                    continue
+
                 msg = await client.send_message(entity, text)
                 sent += 1
-                print(f"[{i}/{len(groups)}] Telegram принял сообщение: {label}; message_id={msg.id}")
+                print(f"{prefix}Telegram принял сообщение: {label}; message_id={msg.id}")
 
                 await asyncio.sleep(VERIFY_AFTER_SECONDS)
                 check = await client.get_messages(entity, ids=msg.id)
                 if check is None:
                     deleted += 1
                     print(
-                        f"[{i}/{len(groups)}] УДАЛЕНО ПОСЛЕ ОТПРАВКИ: {label}; "
+                        f"{prefix}УДАЛЕНО ПОСЛЕ ОТПРАВКИ: {label}; "
                         "вероятно, сообщение удалил бот/модерация группы"
                     )
                 else:
@@ -108,19 +180,19 @@ async def main():
                     if real_username:
                         link = f"https://t.me/{real_username}/{msg.id}"
                     print(
-                        f"[{i}/{len(groups)}] ПОДТВЕРЖДЕНО: сообщение всё ещё существует"
+                        f"{prefix}ПОДТВЕРЖДЕНО: сообщение всё ещё существует"
                         + (f" | {link}" if link else "")
                     )
 
             except errors.SlowModeWaitError as e:
                 skipped += 1
                 print(
-                    f"[{i}/{len(groups)}] SLOW MODE: {label}; ждать ещё {e.seconds} сек. "
+                    f"{prefix}SLOW MODE: {label}; ждать ещё {e.seconds} сек. "
                     "Пропускаю до следующего запуска."
                 )
 
             except errors.FloodWaitError as e:
-                print(f"[{i}/{len(groups)}] FLOOD WAIT: Telegram требует ждать {e.seconds} сек.")
+                print(f"{prefix}FLOOD WAIT: Telegram требует ждать {e.seconds} сек.")
                 print("Останавливаю текущий круг.")
                 break
 
@@ -130,13 +202,13 @@ async def main():
                 errors.ChannelPrivateError,
             ) as e:
                 failed += 1
-                print(f"[{i}/{len(groups)}] Нельзя писать: {label} ({type(e).__name__})")
+                print(f"{prefix}Нельзя писать: {label} ({type(e).__name__})")
 
             except Exception as e:
                 failed += 1
-                print(f"[{i}/{len(groups)}] Ошибка: {label}: {type(e).__name__}: {e}")
+                print(f"{prefix}Ошибка: {label}: {type(e).__name__}: {e}")
 
-            if i < len(groups):
+            if RUN_MODE == "post" and i < len(groups):
                 delay = random.randint(DELAY_MIN, DELAY_MAX)
                 print(f"Пауза {delay} сек.")
                 await asyncio.sleep(delay)
@@ -144,10 +216,13 @@ async def main():
     finally:
         await client.disconnect()
 
-    print(
-        f"Итог: Telegram принял={sent}, подтверждено={verified}, "
-        f"удалено после отправки={deleted}, пропущено={skipped}, ошибок={failed}"
-    )
+    if RUN_MODE == "join":
+        print(f"Итог вступления: новых={joined}, заявок={requested}, ошибок={failed}")
+    else:
+        print(
+            f"Итог: Telegram принял={sent}, подтверждено={verified}, "
+            f"удалено после отправки={deleted}, пропущено={skipped}, ошибок={failed}"
+        )
 
 
 if __name__ == "__main__":
