@@ -1,7 +1,6 @@
 name: Telegram Autopost
 
 on:
-  push:
   workflow_dispatch:
   schedule:
     - cron: "7 9 * * *"
@@ -39,5 +38,5 @@ jobs:
           DELAY_MIN_SECONDS: "45"
           DELAY_MAX_SECONDS: "75"
           RUN_CADENCE: "daily"
-          RUN_MODE: ${{ github.event_name == 'push' && 'join' || 'post' }}
+          RUN_MODE: "post"
         run: python main.py
