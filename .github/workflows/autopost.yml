@@ -1,8 +1,6 @@
 name: Telegram Autopost
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
   schedule:
     - cron: "7 9 * * *"
@@ -17,7 +15,7 @@ concurrency:
 jobs:
   post:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 28
 
     steps:
       - name: Checkout
@@ -32,12 +30,13 @@ jobs:
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
 
-      - name: Join new Telegram groups
+      - name: Post to Telegram groups
         env:
           TG_API_ID: ${{ secrets.TG_API_ID }}
           TG_API_HASH: ${{ secrets.TG_API_HASH }}
           TG_STRING_SESSION: ${{ secrets.TG_STRING_SESSION }}
+          DELAY_MIN_SECONDS: "45"
+          DELAY_MAX_SECONDS: "75"
           RUN_CADENCE: "daily"
-          RUN_MODE: "join"
-          TARGET_ENTITIES: "@moskvapitertaxi1,@sariq_taxi,@mirzayevshoh,@taxipitermoskow_obsujdeniye,@taksimoskvapiter,@ekbmoc_taxi,@taksiuzb471"
-        run: python -u main.py
+          RUN_MODE: "post"
+        run: python main.py
