@@ -21,6 +21,11 @@ VERIFY_AFTER_SECONDS = int(os.getenv("VERIFY_AFTER_SECONDS", "5"))
 RUN_CADENCE = os.getenv("RUN_CADENCE", "daily").strip().lower()
 RUN_MODE = os.getenv("RUN_MODE", "post").strip().lower()
 RUN_ATTEMPT = int(os.getenv("GITHUB_RUN_ATTEMPT", "1"))
+TARGET_ENTITIES = {
+    item.strip().lower()
+    for item in os.getenv("TARGET_ENTITIES", "").split(",")
+    if item.strip()
+}
 
 
 def load_groups(cadence):
@@ -37,8 +42,13 @@ def load_groups(cadence):
 
             entity = (row.get("entity") or "").strip()
             title = (row.get("title") or "").strip()
-            if entity:
-                groups.append((entity, title))
+            if not entity:
+                continue
+
+            if TARGET_ENTITIES and entity.lower() not in TARGET_ENTITIES:
+                continue
+
+            groups.append((entity, title))
     return groups
 
 
@@ -124,6 +134,8 @@ async def main():
     me = await client.get_me()
     print(f"Аккаунт: @{me.username or me.id}")
     print(f"Режим: {RUN_MODE}; периодичность: {RUN_CADENCE}")
+    if TARGET_ENTITIES:
+        print(f"Точечный запуск: {len(TARGET_ENTITIES)} целей")
     print(f"Групп: {len(groups)}")
 
     sent = 0
