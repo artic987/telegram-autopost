@@ -3,7 +3,11 @@ name: Telegram Autopost
 on:
   workflow_dispatch:
   schedule:
-    - cron: "7 9 * * *"
+    - cron: "7 3 * * *"
+  push:
+    branches: [main]
+    paths:
+      - ".github/manual-trigger"
 
 permissions:
   contents: read
@@ -15,7 +19,7 @@ concurrency:
 jobs:
   post:
     runs-on: ubuntu-latest
-    timeout-minutes: 28
+    timeout-minutes: 40
 
     steps:
       - name: Checkout
@@ -39,4 +43,4 @@ jobs:
           DELAY_MAX_SECONDS: "75"
           RUN_CADENCE: "daily"
           RUN_MODE: "post"
-        run: python main.py
+        run: python -u main.py
