@@ -4,10 +4,6 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "7 3 * * *"
-  push:
-    branches: [main]
-    paths:
-      - ".github/manual-trigger"
 
 permissions:
   contents: read
