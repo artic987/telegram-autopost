@@ -27,18 +27,25 @@ TARGET_ENTITIES = {
     if item.strip()
 }
 
+# Приоритет тем форума для нашего объявления: отправление из Санкт-Петербурга,
+# затем универсальные разделы и уже потом прочие транспортные темы.
 TOPIC_KEYWORDS = (
-    ("объяв", 100),
-    ("такси", 95),
-    ("межгород", 95),
-    ("попут", 90),
-    ("пассаж", 85),
-    ("поезд", 80),
-    ("водител", 75),
-    ("трансфер", 70),
-    ("заказ", 65),
-    ("услуг", 60),
-    ("общ", 10),
+    ("санкт-петербург", 140),
+    ("петербург", 135),
+    ("питер", 135),
+    ("ленинград", 130),
+    ("все направ", 125),
+    ("объяв", 120),
+    ("такси", 115),
+    ("межгород", 115),
+    ("попут", 110),
+    ("пассаж", 105),
+    ("поезд", 100),
+    ("водител", 95),
+    ("трансфер", 90),
+    ("заказ", 85),
+    ("услуг", 80),
+    ("общ", 20),
 )
 
 
@@ -121,7 +128,7 @@ def topic_score(topic):
     return score
 
 
-async def choose_open_forum_topic(client, entity, prefix="", verbose=True):
+async def choose_open_forum_topic(client, entity, prefix="", verbose=False):
     if not getattr(entity, "forum", False):
         return None, None
     try:
@@ -163,9 +170,16 @@ async def choose_open_forum_topic(client, entity, prefix="", verbose=True):
     chosen = ranked[0]
     chosen_id = getattr(chosen, "id", None)
     chosen_title = getattr(chosen, "title", None) or f"topic {chosen_id}"
+    chosen_score = topic_score(chosen)
+
+    # Не отправляем наугад в случайный региональный топик, если ничего
+    # подходящего не нашли. Это безопаснее, чем попасть, например, в Казань.
+    if chosen_score <= 0:
+        print(f"{prefix}Открытые темы есть, но подходящей для нашего маршрута не найдено")
+        return None, None
+
     print(
-        f"{prefix}Выбрана открытая тема: {chosen_title} | id={chosen_id} | "
-        f"score={topic_score(chosen)}"
+        f"{prefix}Выбрана открытая тема: {chosen_title} | id={chosen_id} | score={chosen_score}"
     )
     return chosen_id, chosen_title
 
