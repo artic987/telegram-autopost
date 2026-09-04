@@ -9,15 +9,15 @@ enabled,entity,title,cadence
 1,@taxi_puti_rf_kz,Заказы ПУТИ Межгород,daily
 1,@piter_popytchiki,Попутчики Санкт-Петербург,daily
 1,@adspbchat,Объявления СПб чат,daily
-1,@baraholkasppb,Барахолка СПб,daily
+0,@baraholkasppb,Барахолка СПб — услуги/коммерция через администратора,daily
 1,@obyavleniyalnr,Объявления ЛНР,daily
 1,@reklama_dnr_chat,Реклама ДНР чат,daily
-1,@chatTorezBaraholka,Торез Барахолка,daily
+0,@chatTorezBaraholka,Торез Барахолка — реклама через администратора,daily
 1,@obyavalnr,Объявления ЛНР крупная,daily
 1,@prodaidnr,Продай ДНР,daily
-1,@donetsk_don,Донецк объявления и услуги,daily
-1,@kmoskve,Москва поездки,daily
-1,@vezdespb,Санкт-Петербург поездки,daily
+0,@donetsk_don,Донецк объявления и услуги — есть отдельный прайс на рекламу,daily
+0,@kmoskve,Москва поездки — broadcast-канал,daily
+0,@vezdespb,Санкт-Петербург поездки — broadcast-канал,daily
 1,@moskvapitertaxi1,Москва Санкт-Петербург Питер Такси По РФ,daily
 1,@sariq_taxi,Bla Bla Car Москва Питер Казань,daily
 1,@mirzayevshoh,Питер Москва такси,daily
