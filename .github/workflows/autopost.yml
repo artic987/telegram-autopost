@@ -1,42 +1,32 @@
 name: Telegram Autopost
 
 on:
-  workflow_dispatch:
-  schedule:
-    - cron: "7 3 * * *"
+  push:
+    branches: [main]
 
 permissions:
   contents: read
 
-concurrency:
-  group: telegram-autopost
-  cancel-in-progress: false
-
 jobs:
   post:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
-
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: "pip"
-
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
-
-      - name: Post to Telegram groups
-        env:
-          TG_API_ID: ${{ secrets.TG_API_ID }}
-          TG_API_HASH: ${{ secrets.TG_API_HASH }}
-          TG_STRING_SESSION: ${{ secrets.TG_STRING_SESSION }}
-          DELAY_MIN_SECONDS: "45"
-          DELAY_MAX_SECONDS: "75"
-          RUN_CADENCE: "daily"
-          RUN_MODE: "post"
-        run: python -u main.py
+      - name: Inspect Telethon API
+        run: |
+          python - <<'PY'
+          import telethon
+          from telethon import functions
+          print('Telethon', telethon.__version__)
+          print('channels forum symbols:', [x for x in dir(functions.channels) if 'Forum' in x or 'Topic' in x])
+          print('messages forum symbols:', [x for x in dir(functions.messages) if 'Forum' in x or 'Topic' in x])
+          PY
