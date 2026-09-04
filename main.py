@@ -2,6 +2,7 @@ import asyncio
 import csv
 import os
 import random
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from telethon import TelegramClient, errors, functions
@@ -10,6 +11,7 @@ from telethon.sessions import StringSession
 BASE_DIR = Path(__file__).resolve().parent
 GROUPS_CSV = BASE_DIR / "groups.csv"
 MESSAGE_FILE = BASE_DIR / "message.txt"
+MOSCOW_TZ = timezone(timedelta(hours=3))
 
 API_ID = int(os.environ["TG_API_ID"])
 API_HASH = os.environ["TG_API_HASH"]
@@ -61,12 +63,26 @@ def load_groups(cadence):
                 continue
             entity = (row.get("entity") or "").strip()
             title = (row.get("title") or "").strip()
+            message_file = (row.get("message_file") or "").strip()
             if not entity:
                 continue
             if TARGET_ENTITIES and entity.lower() not in TARGET_ENTITIES:
                 continue
-            groups.append((entity, title))
+            groups.append((entity, title, message_file))
     return groups
+
+
+def load_message(message_file=""):
+    path = BASE_DIR / message_file if message_file else MESSAGE_FILE
+    if not path.exists():
+        raise RuntimeError(f"Файл объявления не найден: {path.name}")
+    text = path.read_text(encoding="utf-8").strip()
+    if not text:
+        raise RuntimeError(f"Файл объявления пустой: {path.name}")
+
+    # Для групп, требующих дату поездки, шаблон может содержать {date}.
+    today_msk = datetime.now(MOSCOW_TZ).strftime("%d.%m.%Y")
+    return text.replace("{date}", today_msk)
 
 
 async def join_channel(client, entity, label, prefix=""):
@@ -173,7 +189,7 @@ async def choose_open_forum_topic(client, entity, prefix="", verbose=False):
     chosen_score = topic_score(chosen)
 
     # Не отправляем наугад в случайный региональный топик, если ничего
-    # подходящего не нашли. Это безопаснее, чем попасть, например, в Казань.
+    # подходящего не нашли.
     if chosen_score <= 0:
         print(f"{prefix}Открытые темы есть, но подходящей для нашего маршрута не найдено")
         return None, None
@@ -239,12 +255,6 @@ async def main():
         print(f"Daily-запуск, attempt={RUN_ATTEMPT}: повторная отправка отключена.")
         return
 
-    text = ""
-    if RUN_MODE == "post":
-        text = MESSAGE_FILE.read_text(encoding="utf-8").strip()
-        if not text:
-            raise RuntimeError("message.txt пустой")
-
     groups = load_groups(RUN_CADENCE)
     if not groups:
         print(f"Для режима {RUN_CADENCE} включённых групп нет.")
@@ -265,7 +275,7 @@ async def main():
     sent = verified = deleted = skipped = failed = joined = requested = 0
 
     try:
-        for i, (target, title) in enumerate(groups, start=1):
+        for i, (target, title, message_file) in enumerate(groups, start=1):
             label = title or target
             prefix = f"[{i}/{len(groups)}] "
             try:
@@ -299,6 +309,10 @@ async def main():
                             inspect_entity = linked
                     await choose_open_forum_topic(client, inspect_entity, prefix=prefix, verbose=True)
                     continue
+
+                text = load_message(message_file)
+                if message_file:
+                    print(f"{prefix}Используется отдельный шаблон: {message_file}")
 
                 post_entity, topic_id, topic_title = await resolve_post_destination(
                     client, entity, label, prefix=prefix
