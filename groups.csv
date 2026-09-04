@@ -1,27 +1,27 @@
-enabled,entity,title,cadence
-1,@PoputchikRFDNR,Попутчики РФ ДНР,daily
-1,@popytchik_lnr,Попутчики ЛНР ДНР,daily
-1,@passenger_transport_transfer,Пассажирские перевозки трансфер,daily
-1,@poputchiki_24,ПОПУТЧИКИ_24,daily
-1,@poputchiki_edemvmeste,Попутчики Едем вместе,daily
-1,@peresecheniegranitsi,Перевозки Попутчики,daily
-1,@otvezut,Чат водителей и попутчиков,daily
-1,@taxi_puti_rf_kz,Заказы ПУТИ Межгород,daily
-1,@piter_popytchiki,Попутчики Санкт-Петербург,daily
-1,@adspbchat,Объявления СПб чат,daily
-0,@baraholkasppb,Барахолка СПб — услуги/коммерция через администратора,daily
-1,@obyavleniyalnr,Объявления ЛНР,daily
-1,@reklama_dnr_chat,Реклама ДНР чат,daily
-0,@chatTorezBaraholka,Торез Барахолка — реклама через администратора,daily
-1,@obyavalnr,Объявления ЛНР крупная,daily
-1,@prodaidnr,Продай ДНР,daily
-0,@donetsk_don,Донецк объявления и услуги — есть отдельный прайс на рекламу,daily
-0,@kmoskve,Москва поездки — broadcast-канал,daily
-0,@vezdespb,Санкт-Петербург поездки — broadcast-канал,daily
-1,@moskvapitertaxi1,Москва Санкт-Петербург Питер Такси По РФ,daily
-1,@sariq_taxi,Bla Bla Car Москва Питер Казань,daily
-1,@mirzayevshoh,Питер Москва такси,daily
-1,@taxipitermoskow_obsujdeniye,Такси Питер Москва Питер,daily
-1,@taksimoskvapiter,Такси Москва Питер,daily
-1,@ekbmoc_taxi,Питер Москва Екатеринбург,daily
-1,@taksiuzb471,Питер Москва UZB такси,daily
+enabled,entity,title,cadence,message_file
+1,@PoputchikRFDNR,Попутчики РФ ДНР,daily,
+1,@popytchik_lnr,Попутчики ЛНР ДНР,daily,
+1,@passenger_transport_transfer,Пассажирские перевозки трансфер,daily,
+1,@poputchiki_24,ПОПУТЧИКИ_24,daily,
+1,@poputchiki_edemvmeste,Попутчики Едем вместе,daily,message_poputchiki_edemvmeste.txt
+1,@peresecheniegranitsi,Перевозки Попутчики,daily,
+1,@otvezut,Чат водителей и попутчиков,daily,
+1,@taxi_puti_rf_kz,Заказы ПУТИ Межгород,daily,
+1,@piter_popytchiki,Попутчики Санкт-Петербург,daily,
+1,@adspbchat,Объявления СПб чат,daily,
+0,@baraholkasppb,Барахолка СПб — услуги/коммерция через администратора,daily,
+1,@obyavleniyalnr,Объявления ЛНР,daily,
+1,@reklama_dnr_chat,Реклама ДНР чат,daily,
+0,@chatTorezBaraholka,Торез Барахолка — реклама через администратора,daily,
+1,@obyavalnr,Объявления ЛНР крупная,daily,
+1,@prodaidnr,Продай ДНР,daily,
+0,@donetsk_don,Донецк объявления и услуги — есть отдельный прайс на рекламу,daily,
+0,@kmoskve,Москва поездки — broadcast-канал,daily,
+0,@vezdespb,Санкт-Петербург поездки — broadcast-канал,daily,
+1,@moskvapitertaxi1,Москва Санкт-Петербург Питер Такси По РФ,daily,
+1,@sariq_taxi,Bla Bla Car Москва Питер Казань,daily,
+1,@mirzayevshoh,Питер Москва такси,daily,
+1,@taxipitermoskow_obsujdeniye,Такси Питер Москва Питер,daily,
+1,@taksimoskvapiter,Такси Москва Питер,daily,
+1,@ekbmoc_taxi,Питер Москва Екатеринбург,daily,
+1,@taksiuzb471,Питер Москва UZB такси,daily,
