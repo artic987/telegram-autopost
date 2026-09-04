@@ -27,6 +27,21 @@ TARGET_ENTITIES = {
     if item.strip()
 }
 
+# Приоритет тем форума для объявления о пассажирских перевозках.
+TOPIC_KEYWORDS = (
+    ("объяв", 100),
+    ("такси", 95),
+    ("межгород", 95),
+    ("попут", 90),
+    ("пассаж", 85),
+    ("поезд", 80),
+    ("водител", 75),
+    ("трансфер", 70),
+    ("заказ", 65),
+    ("услуг", 60),
+    ("общ", 10),
+)
+
 
 def load_groups(cadence):
     groups = []
@@ -55,7 +70,7 @@ def load_groups(cadence):
 async def join_channel(client, entity, label, prefix=""):
     try:
         await client(functions.channels.JoinChannelRequest(entity))
-        print(f"{prefix}ВСТУПИЛ: {label}")
+        print(f"{prefix}ВСТУПИЛ/УЖЕ СОСТОИМ: {label}")
         return "joined"
     except errors.UserAlreadyParticipantError:
         print(f"{prefix}УЖЕ СОСТОИМ: {label}")
@@ -70,7 +85,8 @@ async def join_channel(client, entity, label, prefix=""):
         return "failed"
 
 
-async def try_join_linked_discussion(client, entity, label, prefix=""):
+async def get_linked_discussion(client, entity, label, prefix="", join=True):
+    """Вернуть связанный discussion-чат для broadcast-канала, если он есть."""
     if not getattr(entity, "broadcast", False):
         return None
 
@@ -78,6 +94,7 @@ async def try_join_linked_discussion(client, entity, label, prefix=""):
         full = await client(functions.channels.GetFullChannelRequest(entity))
         linked_id = getattr(full.full_chat, "linked_chat_id", None)
         if not linked_id:
+            print(f"{prefix}У канала нет связанного discussion-чата: {label}")
             return None
 
         linked = next(
@@ -94,19 +111,150 @@ async def try_join_linked_discussion(client, entity, label, prefix=""):
             f"{prefix}Связанный чат: {linked_title} | "
             f"@{linked_username if linked_username else '-'} | id={linked_id}"
         )
-        await join_channel(client, linked, f"{label} → {linked_title}", prefix=prefix)
+
+        if join:
+            await join_channel(client, linked, f"{label} → {linked_title}", prefix=prefix)
         return linked
     except errors.FloodWaitError:
         raise
     except Exception as e:
-        print(f"{prefix}Не удалось проверить связанный чат: {label}: {type(e).__name__}: {e}")
+        print(f"{prefix}Не удалось получить связанный чат: {label}: {type(e).__name__}: {e}")
         return None
+
+
+def topic_score(topic):
+    title = (getattr(topic, "title", None) or "").lower()
+    score = 0
+    for needle, weight in TOPIC_KEYWORDS:
+        if needle in title:
+            score = max(score, weight)
+    # При равном смысловом приоритете предпочитаем более раннюю тему.
+    return score
+
+
+async def choose_open_forum_topic(client, entity, prefix="", verbose=True):
+    """Выбрать открытую и тематически подходящую тему форума.
+
+    Возвращает (topic_id, title) или (None, None). Для General id=1; в этом
+    случае send_message без reply_to и так попадёт в General.
+    """
+    if not getattr(entity, "forum", False):
+        return None, None
+
+    try:
+        result = await client(
+            functions.channels.GetForumTopicsRequest(
+                channel=entity,
+                offset_date=None,
+                offset_id=0,
+                offset_topic=0,
+                limit=100,
+            )
+        )
+    except Exception as e:
+        print(f"{prefix}Не удалось получить темы форума: {type(e).__name__}: {e}")
+        return None, None
+
+    open_topics = []
+    if verbose:
+        print(f"{prefix}Форум: найдено тем={len(getattr(result, 'topics', []) or [])}")
+
+    for topic in getattr(result, "topics", []) or []:
+        topic_id = getattr(topic, "id", None)
+        title = getattr(topic, "title", None) or f"topic {topic_id}"
+        closed = bool(getattr(topic, "closed", False))
+        hidden = bool(getattr(topic, "hidden", False))
+        if verbose:
+            print(
+                f"{prefix}Тема id={topic_id}: {title}; "
+                f"closed={closed}; hidden={hidden}"
+            )
+        if topic_id is not None and not closed and not hidden:
+            open_topics.append(topic)
+
+    if not open_topics:
+        print(f"{prefix}Нет открытых тем форума для публикации")
+        return None, None
+
+    ranked = sorted(
+        open_topics,
+        key=lambda t: (topic_score(t), -int(getattr(t, "id", 0) or 0)),
+        reverse=True,
+    )
+    chosen = ranked[0]
+    chosen_id = getattr(chosen, "id", None)
+    chosen_title = getattr(chosen, "title", None) or f"topic {chosen_id}"
+    print(
+        f"{prefix}Выбрана открытая тема: {chosen_title} | id={chosen_id} | "
+        f"score={topic_score(chosen)}"
+    )
+    return chosen_id, chosen_title
+
+
+def message_link(entity, message_id):
+    username = getattr(entity, "username", None)
+    if username:
+        return f"https://t.me/{username}/{message_id}"
+
+    entity_id = getattr(entity, "id", None)
+    if entity_id:
+        # Для приватных supergroup/discussion Telegram использует /c/<id>/<message>.
+        return f"https://t.me/c/{entity_id}/{message_id}"
+    return None
+
+
+async def resolve_post_destination(client, entity, label, prefix=""):
+    """Определить реальное место публикации.
+
+    Broadcast-канал сам по себе писать не даст обычному участнику, поэтому
+    публикуем в его связанном discussion-чате. Для forum-группы выбираем
+    открытую тематическую тему вместо закрытого General.
+    """
+    post_entity = entity
+
+    if getattr(entity, "broadcast", False):
+        linked = await get_linked_discussion(client, entity, label, prefix=prefix, join=True)
+        if linked is None:
+            print(f"{prefix}ПРОПУСК: broadcast-канал без доступного discussion-чата")
+            return None, None, None
+        post_entity = linked
+        linked_title = getattr(linked, "title", None) or label
+        print(f"{prefix}Публикация будет в связанном чате: {linked_title}")
+
+    topic_id, topic_title = await choose_open_forum_topic(client, post_entity, prefix=prefix)
+    return post_entity, topic_id, topic_title
+
+
+async def send_with_topic_fallback(client, post_entity, text, topic_id, prefix=""):
+    """Отправить сообщение, а при TOPIC_CLOSED ещё раз выбрать открытую тему."""
+    kwargs = {}
+    if topic_id and topic_id != 1:
+        kwargs["reply_to"] = topic_id
+
+    try:
+        return await client.send_message(post_entity, text, **kwargs)
+    except errors.BadRequestError as e:
+        if "TOPIC_CLOSED" not in str(e).upper():
+            raise
+
+        print(f"{prefix}General/выбранная тема закрыта. Ищу другую открытую тему...")
+        retry_topic_id, retry_title = await choose_open_forum_topic(
+            client, post_entity, prefix=prefix, verbose=True
+        )
+        if not retry_topic_id:
+            raise
+
+        retry_kwargs = {}
+        if retry_topic_id != 1:
+            retry_kwargs["reply_to"] = retry_topic_id
+        print(f"{prefix}Повторная отправка в тему: {retry_title} | id={retry_topic_id}")
+        return await client.send_message(post_entity, text, **retry_kwargs)
 
 
 async def main():
     if RUN_CADENCE not in {"frequent", "daily"}:
         raise RuntimeError(f"Неизвестный RUN_CADENCE: {RUN_CADENCE}")
-    if RUN_MODE not in {"post", "join"}:
+    if RUN_MODE not in {"post", "join", "inspect"}:
         raise RuntimeError(f"Неизвестный RUN_MODE: {RUN_MODE}")
 
     # Повторный rerun ежедневной публикации не должен дублировать посты.
@@ -158,7 +306,9 @@ async def main():
                 real_id = getattr(entity, "id", None)
                 print(
                     f"{prefix}Цель: {real_title} | "
-                    f"@{real_username if real_username else '-'} | id={real_id}"
+                    f"@{real_username if real_username else '-'} | id={real_id} | "
+                    f"broadcast={bool(getattr(entity, 'broadcast', False))} | "
+                    f"forum={bool(getattr(entity, 'forum', False))}"
                 )
 
                 join_result = await join_channel(client, entity, label, prefix=prefix)
@@ -167,19 +317,43 @@ async def main():
                 elif join_result == "requested":
                     requested += 1
 
-                # Для каналов дополнительно вступаем в связанный discussion-чат, если он есть.
-                await try_join_linked_discussion(client, entity, label, prefix=prefix)
-
                 if RUN_MODE == "join":
+                    await get_linked_discussion(client, entity, label, prefix=prefix, join=True)
                     await asyncio.sleep(3)
                     continue
 
-                msg = await client.send_message(entity, text)
+                if RUN_MODE == "inspect":
+                    inspect_entity = entity
+                    if getattr(entity, "broadcast", False):
+                        linked = await get_linked_discussion(
+                            client, entity, label, prefix=prefix, join=True
+                        )
+                        if linked is not None:
+                            inspect_entity = linked
+                    await choose_open_forum_topic(client, inspect_entity, prefix=prefix, verbose=True)
+                    continue
+
+                post_entity, topic_id, topic_title = await resolve_post_destination(
+                    client, entity, label, prefix=prefix
+                )
+                if post_entity is None:
+                    failed += 1
+                    continue
+
+                post_title = getattr(post_entity, "title", None) or label
+                if topic_title:
+                    print(f"{prefix}Куда пишем: {post_title} → {topic_title}")
+                else:
+                    print(f"{prefix}Куда пишем: {post_title}")
+
+                msg = await send_with_topic_fallback(
+                    client, post_entity, text, topic_id, prefix=prefix
+                )
                 sent += 1
                 print(f"{prefix}Telegram принял сообщение: {label}; message_id={msg.id}")
 
                 await asyncio.sleep(VERIFY_AFTER_SECONDS)
-                check = await client.get_messages(entity, ids=msg.id)
+                check = await client.get_messages(post_entity, ids=msg.id)
                 if check is None:
                     deleted += 1
                     print(
@@ -188,9 +362,7 @@ async def main():
                     )
                 else:
                     verified += 1
-                    link = None
-                    if real_username:
-                        link = f"https://t.me/{real_username}/{msg.id}"
+                    link = message_link(post_entity, msg.id)
                     print(
                         f"{prefix}ПОДТВЕРЖДЕНО: сообщение всё ещё существует"
                         + (f" | {link}" if link else "")
@@ -230,6 +402,8 @@ async def main():
 
     if RUN_MODE == "join":
         print(f"Итог вступления: новых={joined}, заявок={requested}, ошибок={failed}")
+    elif RUN_MODE == "inspect":
+        print("Диагностика завершена")
     else:
         print(
             f"Итог: Telegram принял={sent}, подтверждено={verified}, "
