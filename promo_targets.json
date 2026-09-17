@@ -1,0 +1,90 @@
+{
+  "direct": [
+    "@reklama_chatr",
+    "@rektgkp",
+    "@free_piarr",
+    "@PR_FREEEE",
+    "@P1Rchatik",
+    "@prchatik",
+    "@p1rchats",
+    "@PR_Free_chat",
+    "@free_pr_channel",
+    "@freereklchat",
+    "@freeprtalk",
+    "@reklama_groupe",
+    "@piargrupa2",
+    "@reklama_piar_100",
+    "@PRCHAT_TOP",
+    "@prchat_24",
+    "@piarchatvi",
+    "@reklamy_chat",
+    "@telegabirza",
+
+    "@business_club_portal",
+    "@club_guarantor",
+    "@club_reformer",
+    "@club_marketing_gods",
+    "@club_business_world",
+    "@club_impulse",
+    "@club_growth_dynamics",
+    "@business_club_drive",
+    "@club_business_teleport",
+    "@business_club_storm",
+    "@business_club_atlant",
+    "@club_jeweler",
+    "@club_london_city",
+
+    "@adspbchat",
+    "@reclamaspb",
+    "@obyavleniyalnr",
+    "@reklama_dnr_chat"
+  ],
+
+  "admin_only": [
+    {
+      "target": "@tvoymed",
+      "contact": "@medpost2024"
+    },
+    {
+      "target": "@med_zdorov",
+      "contact": "@irina_nikoLs"
+    },
+    {
+      "target": "@job_in_zdrav",
+      "contact": "@uninstall99"
+    },
+    {
+      "target": "@martynovevgueni",
+      "contact": "@ZdravMarketingBot"
+    },
+    {
+      "target": "@gruzia_medicina",
+      "contact": "@PR_3600"
+    },
+    {
+      "target": "@germaniya_medicina",
+      "contact": "@PR_3600"
+    },
+
+    {
+      "target": "@poputkachat",
+      "contact": "@vskonlinee_bot"
+    },
+    {
+      "target": "@PoputsikiRuss_Est",
+      "contact": "@AddsForYouBot"
+    },
+    {
+      "target": "@kminsku",
+      "contact": "@bokser213"
+    },
+    {
+      "target": "@vezdespb",
+      "contact": "@bokser213"
+    },
+    {
+      "target": "@izrigi",
+      "contact": "@bokser213"
+    }
+  ]
+}
