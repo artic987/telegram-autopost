@@ -12,27 +12,24 @@ from telethon import TelegramClient, types
 from telethon.sessions import StringSession
 
 
-MODEL = os.getenv(
-    "GROQ_MODEL",
-    "openai/gpt-oss-20b"
-)
-
-GROQ_URL = (
-    "https://api.groq.com/openai/v1/chat/completions"
-)
+MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
+GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 DRY_RUN = (
-    os.getenv("DRY_RUN", "false")
-    .lower()
+    os.getenv("DRY_RUN", "false").lower()
     in ("1", "true", "yes", "on")
+)
+
+EVENT_NAME = os.getenv(
+    "EVENT_NAME",
+    "manual"
 )
 
 MOSCOW = timezone(
     timedelta(hours=3)
 )
 
-# Первый реальный автоматический запуск:
-# 18.09.2026 -> Атаракс
+# Первый настоящий день публикаций.
 BASE_DATE = date(
     2026,
     9,
@@ -128,87 +125,75 @@ CHANNELS = [
 CATEGORIES = [
     {
         "name": "сам препарат",
-
         "ideas": [
-            "как препарат действует простыми словами",
+            "как работает препарат простыми словами",
             "история появления препарата",
-            "к какому фармакологическому классу относится препарат",
-            "почему действие лекарства нельзя объяснить одной фразой",
-            "почему люди могут по-разному реагировать на один препарат",
-            "что такое период полувыведения и почему он важен",
-            "что такое активный метаболит",
-            "почему побочные эффекты у разных людей отличаются",
-            "распространённый миф о препарате",
-            "почему чужой отзыв не предсказывает индивидуальный результат",
-            "зачем врачу знать о других принимаемых лекарствах",
+            "к какому фармакологическому классу он относится",
+            "почему люди по-разному реагируют на один препарат",
+            "что такое период полувыведения",
+            "почему возникают побочные эффекты",
             "что такое лекарственное взаимодействие",
+            "миф о препарате и разбор этого мифа",
+            "почему отзывы других людей нельзя переносить на себя",
+            "почему важен индивидуальный подбор лечения",
         ],
     },
 
     {
         "name": "психическое здоровье",
-
         "ideas": [
-            "как тревога может проявляться физически",
-            "почему хронический стресс влияет на самочувствие",
+            "как тревога проявляется физически",
+            "почему хронический стресс влияет на организм",
             "сон и психическое здоровье",
-            "почему тревожность и усталость иногда усиливают друг друга",
-            "как психотерапия и фармакотерапия могут дополнять друг друга",
-            "почему стигма мешает людям обращаться за помощью",
-            "что такое навязчивые мысли простыми словами",
-            "чем плохой день отличается от устойчивого ухудшения состояния",
-            "почему психические симптомы нельзя свести к силе воли",
-            "как режим сна связан с эмоциональным состоянием",
-            "почему диагноз важнее советов из интернета",
-            "что означает доказательный подход к психическому здоровью",
+            "тревога и усталость",
+            "психотерапия и фармакотерапия",
+            "почему психические симптомы не сводятся к силе воли",
+            "почему люди откладывают обращение за помощью",
+            "что такое навязчивые мысли",
+            "как режим влияет на эмоциональное состояние",
+            "почему самодиагностика бывает ошибочной",
         ],
     },
 
     {
         "name": "фармакология",
-
         "ideas": [
-            "что такое рецептор простыми словами",
+            "что такое рецептор",
             "что такое нейромедиатор",
-            "как лекарство попадает в кровь",
-            "как печень участвует в переработке лекарств",
-            "как организм выводит лекарства",
-            "что означает биодоступность",
+            "как лекарство всасывается",
+            "как печень перерабатывает лекарства",
+            "как организм выводит препараты",
+            "что такое биодоступность",
             "что такое фармакокинетика",
             "что такое фармакодинамика",
-            "побочный эффект и аллергия — почему это не одно и то же",
-            "почему взаимодействуют разные лекарства",
-            "что такое терапевтический эффект",
+            "чем побочный эффект отличается от аллергии",
+            "что такое активный метаболит",
             "зачем нужны клинические исследования",
-            "как исследователи сравнивают пользу и риск препарата",
-            "почему отдельный отзыв не является доказательством",
+            "как оценивают пользу и риск лекарства",
         ],
     },
 
     {
         "name": "аптеки и фармацевтика",
-
         "ideas": [
-            "чем занимается фармацевт в аптеке",
+            "чем занимается фармацевт",
             "как лекарства хранят в аптеке",
-            "почему температура хранения имеет значение",
-            "зачем лекарству срок годности",
+            "почему важна температура хранения",
+            "зачем лекарствам срок годности",
             "что происходит с просроченными лекарствами",
             "что такое дженерик",
-            "чем торговое название отличается от действующего вещества",
-            "зачем читать инструкцию к препарату",
+            "бренд и действующее вещество",
+            "как читать инструкцию к лекарству",
             "как устроена упаковка лекарства",
-            "почему таблетки одного вещества могут выглядеть по-разному",
-            "как работают серии и партии лекарств",
+            "почему одинаковые лекарства выглядят по-разному",
+            "что такое серия лекарственного препарата",
             "что такое фармаконадзор",
-            "зачем сообщают о нежелательных реакциях",
-            "почему фармацевту важно знать о других лекарствах пациента",
         ],
     },
 ]
 
 
-def words(text):
+def normalized_words(text):
     return set(
         re.findall(
             r"[а-яёa-z0-9]{5,}",
@@ -217,7 +202,7 @@ def words(text):
     )
 
 
-def select_day():
+def current_cycle():
     today = datetime.now(
         MOSCOW
     ).date()
@@ -226,48 +211,47 @@ def select_day():
         today - BASE_DATE
     ).days
 
-    # Для ручного теста до первого дня
-    # показываем первый канал.
+    return today, delta
+
+
+def should_publish_today():
+    today, delta = current_cycle()
+
+    # Ручной запуск разрешаем всегда.
+    if EVENT_NAME == "workflow_dispatch":
+        return True
+
     if delta < 0:
-        delta = 0
+        return False
 
-    channel_index = (
-        delta
-        % len(CHANNELS)
-    )
+    return delta % 2 == 0
 
-    cycle_number = (
-        delta
-        // len(CHANNELS)
-    )
 
-    # Благодаря + channel_index каналы
-    # внутри одного 8-дневного круга получают
-    # разные рубрики.
-    #
-    # Благодаря + cycle_number рубрика
-    # конкретного канала меняется каждый раз,
-    # когда очередь возвращается к нему.
-    category_index = (
-        channel_index
-        + cycle_number
-    ) % len(CATEGORIES)
+def choose_category(
+    channel_index
+):
+    today, delta = current_cycle()
 
-    return (
-        today,
-        delta,
-        channel_index,
-        category_index,
-        CHANNELS[channel_index],
-        CATEGORIES[category_index],
-    )
+    if delta < 0:
+        cycle = 0
+    else:
+        cycle = (
+            delta // 2
+        )
+
+    return CATEGORIES[
+        (
+            cycle
+            + channel_index
+        )
+        % len(CATEGORIES)
+    ]
 
 
 async def find_channel(
     client,
     cfg
 ):
-    # Сначала пробуем публичные username.
     for username in cfg["usernames"]:
         try:
             entity = await client.get_entity(
@@ -279,7 +263,7 @@ async def find_channel(
                 types.Channel
             ):
                 print(
-                    f"✓ Найден по username: "
+                    f"✓ {cfg['title']}: "
                     f"@{username}"
                 )
 
@@ -288,8 +272,6 @@ async def find_channel(
         except Exception:
             pass
 
-    # Если public username не назначился,
-    # ищем среди собственных диалогов по названию.
     async for dialog in client.iter_dialogs():
         entity = dialog.entity
 
@@ -306,85 +288,76 @@ async def find_channel(
             )
         ):
             print(
-                f"✓ Найден по названию: "
-                f"{cfg['title']}"
+                f"✓ {cfg['title']}: "
+                "найден по названию"
             )
 
             return entity
 
     raise RuntimeError(
-        "Не найден Telegram-канал: "
-        + cfg["title"]
+        f"Канал {cfg['title']} "
+        "не найден"
     )
 
 
-async def read_recent(
+async def recent_posts(
     client,
     channel
 ):
-    posts = []
+    result = []
 
-    async for message in client.iter_messages(
+    async for msg in client.iter_messages(
         channel,
         limit=30
     ):
         text = (
-            message.message
+            msg.message
             or ""
         ).strip()
 
         if text:
-            posts.append(
+            result.append(
                 text[:1800]
             )
 
-    return posts
+    return result
 
 
 def choose_idea(
     category,
     recent
 ):
-    recent_words = words(
-        "\n".join(
-            recent
-        )
+    used = normalized_words(
+        "\n".join(recent)
     )
 
     scored = []
 
     for idea in category["ideas"]:
-        idea_words = words(
+        idea_words = normalized_words(
             idea
         )
 
-        overlap = len(
-            idea_words
-            & recent_words
+        score = len(
+            idea_words & used
         )
 
         scored.append(
             (
-                overlap,
+                score,
                 random.random(),
                 idea
             )
         )
 
-    scored.sort(
-        key=lambda x: (
-            x[0],
-            x[1]
-        )
-    )
+    scored.sort()
 
     best = scored[0][0]
 
     candidates = [
-        idea
-        for score, _, idea
-        in scored
-        if score == best
+        item[2]
+        for item in scored
+        if item[0] == best
     ]
 
     return random.choice(
@@ -392,109 +365,106 @@ def choose_idea(
     )
 
 
-def make_prompt(
+def prompt_for(
     cfg,
     category,
     idea,
     recent
 ):
-    history = (
-        "\n\n---\n\n"
-        .join(
-            recent[:15]
-        )
+    history = "\n\n---\n\n".join(
+        recent[:15]
     )
 
     special = ""
 
     if cfg["title"] in (
         "Прегабалин",
-        "Фенибут",
         "Бронхолитин",
+        "Фенибут",
     ):
         special = """
-Для этого канала особенно важно:
-не объясняй способы рекреационного или немедицинского
-употребления, способы усиления эффекта, опасные комбинации
-ради эффекта, получение препарата в обход правил
-или способы скрыть употребление.
+Не описывай рекреационное употребление,
+способы получения эйфории, усиления действия,
+опасные комбинации ради эффекта,
+обход ограничений или получение препарата
+в обход законных правил.
 """
 
     return f"""
-Ты редактор русскоязычного образовательного Telegram-канала.
+Ты редактор русскоязычного образовательного
+Telegram-канала.
 
-Название канала:
+Канал:
 {cfg["title"]}
 
-Основная лекарственная тема:
+Основная тема:
 {cfg["drug"]}
 
 Сегодняшняя рубрика:
 {category["name"]}
 
-Фокус сегодняшнего материала:
+Конкретная тема:
 {idea}
 
-Напиши ОДИН новый Telegram-пост.
+Создай ОДИН новый Telegram-пост.
 
-ТРЕБОВАНИЯ:
+Формат:
 
-— примерно 700–1200 знаков;
+— 700–1200 знаков;
 — короткий интересный заголовок;
 — 3–6 небольших абзацев;
-— естественный современный русский язык;
-— пост должен быть понятен обычному читателю;
-— допускаются несколько подходящих эмодзи;
-— в конце добавь 2–4 подходящих хэштега;
-— избегай канцелярита и SEO-спама;
-— не повторяй последние публикации канала.
+— простой современный русский язык;
+— полезный информационный материал;
+— несколько уместных эмодзи допустимы;
+— 2–4 хэштега в конце;
+— не повторяй последние публикации.
 
-Если сегодняшняя тема общая —
-психология, аптеки или фармакология —
-не нужно искусственно вставлять название лекарства
-в каждый абзац. Достаточно естественной связи
-с тематикой канала.
+Тематика канала может включать:
 
-ЭТО ИНФОРМАЦИОННЫЙ КАНАЛ.
+— сам препарат;
+— фармакологию;
+— психическое здоровье;
+— устройство аптек;
+— профессию фармацевта;
+— лекарственные исследования;
+— безопасность лекарств.
 
-НЕЛЬЗЯ:
+Если пост не непосредственно про препарат,
+не нужно искусственно вставлять его название
+в каждый абзац.
 
-— рекламировать продажу лекарства;
-— писать цены или наличие;
-— предлагать купить или заказать;
+Нельзя:
+
+— рекламировать продажу;
+— писать цены;
+— сообщать наличие;
+— предлагать купить;
 — рекламировать доставку;
-— составлять индивидуальные схемы лечения;
-— назначать человеку препарат;
+— назначать лечение;
+— давать персональные рекомендации;
 — давать дозировки;
-— объяснять самостоятельное увеличение дозы;
-— давать инструкции по опасным сочетаниям;
-— выдумывать исследования или статистику;
-— выдумывать юридический или рецептурный статус;
-— представлять личные отзывы как научный факт.
+— составлять схемы приёма;
+— объяснять повышение доз;
+— описывать опасные сочетания как инструкцию;
+— придумывать исследования или статистику;
+— придумывать юридический статус препарата.
 
-Если правовой или рецептурный статус зависит
-от страны, не делай конкретных утверждений без источника.
-
-Если речь идёт о зависимости, выраженной отмене,
-суицидальных мыслях, мании, тяжёлой аллергической
-или другой потенциально опасной реакции,
-кратко укажи на необходимость обращения
-за медицинской помощью.
+Если речь идёт о тяжёлой побочной реакции,
+зависимости, выраженной отмене,
+суицидальных мыслях или другом опасном состоянии,
+укажи на необходимость медицинской помощи.
 
 {special}
 
-Последние публикации этого канала:
+Последние публикации канала:
 
-{history if history else "(данных пока мало)"}
+{history if history else "(публикаций мало)"}
 
-Верни ТОЛЬКО готовый текст поста.
-Без пояснений до или после него.
+Верни только готовый текст поста.
 """.strip()
 
 
-def clean(
-    text
-):
+def clean(text):
     text = text.strip()
 
     for marker in (
@@ -510,16 +480,13 @@ def clean(
     text = text.strip()
 
     if len(text) > 3900:
-        text = text[:3890]
-
-        if "\n" in text:
-            text = text.rsplit(
+        text = (
+            text[:3890]
+            .rsplit(
                 "\n",
                 1
             )[0]
-
-        text = (
-            text.rstrip()
+            .rstrip()
             + "…"
         )
 
@@ -541,10 +508,9 @@ def generate(
                 {
                     "role": "system",
                     "content": (
-                        "Пиши качественные "
-                        "образовательные Telegram-посты "
-                        "о фармакологии, психическом здоровье "
-                        "и устройстве аптек."
+                        "Ты редактор образовательных "
+                        "Telegram-каналов о фармакологии, "
+                        "психическом здоровье и аптеках."
                     ),
                 },
 
@@ -581,8 +547,6 @@ def generate(
                 "Content-Type":
                     "application/json",
 
-                # Нужен, иначе Cloudflare Groq
-                # может дать error 1010.
                 "User-Agent":
                     "telegram-autopost/1.0",
             },
@@ -594,7 +558,7 @@ def generate(
                 timeout=150
             ) as response:
 
-                data = json.loads(
+                result = json.loads(
                     response
                     .read()
                     .decode(
@@ -603,25 +567,14 @@ def generate(
                 )
 
             text = (
-                data
-                .get(
-                    "choices",
-                    [{}]
-                )[0]
-                .get(
-                    "message",
-                    {}
-                )
-                .get(
-                    "content",
-                    ""
-                )
+                result["choices"][0]
+                ["message"]["content"]
                 .strip()
             )
 
             if not text:
                 raise RuntimeError(
-                    "Groq вернул пустой текст"
+                    "Groq вернул пустой ответ"
                 )
 
             return clean(
@@ -643,14 +596,13 @@ def generate(
             ) and attempt < 3:
 
                 wait = (
-                    attempt
-                    * 15
+                    attempt * 15
                 )
 
                 print(
                     f"Groq HTTP "
-                    f"{exc.code}. "
-                    f"Повтор через "
+                    f"{exc.code}, "
+                    f"повтор через "
                     f"{wait} сек."
                 )
 
@@ -671,20 +623,20 @@ def generate(
     )
 
 
-async def already_posted_today(
+async def posted_today(
     client,
     channel,
     today
 ):
-    async for message in client.iter_messages(
+    async for msg in client.iter_messages(
         channel,
-        limit=30
+        limit=20
     ):
-        if not message.date:
+        if not msg.date:
             continue
 
         local_date = (
-            message.date
+            msg.date
             .astimezone(
                 MOSCOW
             )
@@ -695,47 +647,64 @@ async def already_posted_today(
             return True
 
         if local_date < today:
-            break
+            return False
 
     return False
 
 
-async def main():
-    (
-        today,
-        delta,
-        channel_index,
-        category_index,
-        cfg,
+async def process_channel(
+    client,
+    cfg,
+    index,
+    today
+):
+    print()
+    print(
+        "=" * 60
+    )
+
+    print(
+        f"{index + 1}/"
+        f"{len(CHANNELS)} "
+        f"{cfg['title']}"
+    )
+
+    print(
+        "=" * 60
+    )
+
+    channel = await find_channel(
+        client,
+        cfg
+    )
+
+    # При реальной публикации не создаём
+    # второй пост в этом канале в тот же день.
+    if not DRY_RUN:
+        if await posted_today(
+            client,
+            channel,
+            today
+        ):
+            print(
+                "↷ Сегодня уже есть публикация. "
+                "Пропускаю."
+            )
+
+            return "skip"
+
+    recent = await recent_posts(
+        client,
+        channel
+    )
+
+    category = choose_category(
+        index
+    )
+
+    idea = choose_idea(
         category,
-    ) = select_day()
-
-    print(
-        "========================================"
-    )
-
-    print(
-        "Дата МСК:",
-        today.isoformat()
-    )
-
-    print(
-        "День цикла:",
-        (
-            channel_index
-            + 1
-        ),
-        "/ 8"
-    )
-
-    print(
-        "Сегодняшний канал:",
-        cfg["title"]
-    )
-
-    print(
-        "Препарат:",
-        cfg["drug"]
+        recent
     )
 
     print(
@@ -744,8 +713,75 @@ async def main():
     )
 
     print(
-        "Модель:",
-        MODEL
+        "Тема:",
+        idea
+    )
+
+    post = await asyncio.to_thread(
+        generate,
+        prompt_for(
+            cfg,
+            category,
+            idea,
+            recent
+        )
+    )
+
+    print()
+    print(
+        "----- PREVIEW -----"
+    )
+
+    print(
+        post
+    )
+
+    print(
+        "-------------------"
+    )
+
+    if DRY_RUN:
+        print(
+            "✓ DRY RUN — "
+            "не опубликовано"
+        )
+
+        return "preview"
+
+    msg = await client.send_message(
+        channel,
+        post,
+        link_preview=False
+    )
+
+    print(
+        f"✓ ОПУБЛИКОВАНО "
+        f"message_id={msg.id}"
+    )
+
+    return "published"
+
+
+async def main():
+    today, delta = current_cycle()
+
+    print(
+        "========================================"
+    )
+
+    print(
+        "Дата МСК:",
+        today
+    )
+
+    print(
+        "Дней от старта:",
+        delta
+    )
+
+    print(
+        "EVENT:",
+        EVENT_NAME
     )
 
     print(
@@ -756,6 +792,17 @@ async def main():
     print(
         "========================================"
     )
+
+    if not should_publish_today():
+        print(
+            "Сегодня день без публикаций."
+        )
+
+        print(
+            "Следующий цикл — завтра."
+        )
+
+        return
 
     api_id = int(
         os.environ[
@@ -771,6 +818,9 @@ async def main():
         "TG_STRING_SESSION"
     ]
 
+    results = []
+    failures = []
+
     async with TelegramClient(
         StringSession(
             session
@@ -782,129 +832,71 @@ async def main():
         me = await client.get_me()
 
         print(
-            "Telegram подключён:",
+            "Telegram:",
             me.id
         )
 
-        channel = await find_channel(
-            client,
-            cfg
-        )
+        for index, cfg in enumerate(
+            CHANNELS
+        ):
+            try:
+                result = await process_channel(
+                    client,
+                    cfg,
+                    index,
+                    today
+                )
 
-        # При настоящем расписании:
-        # если в сегодняшнем канале уже что-то
-        # опубликовано сегодня, второй автоматический
-        # пост не отправляем.
-        #
-        # DRY RUN это ограничение игнорирует,
-        # чтобы тест всё равно сгенерировал текст.
-        if not DRY_RUN:
-            if await already_posted_today(
-                client,
-                channel,
-                today
-            ):
-                print(
-                    "Сегодня в этом канале "
-                    "уже есть публикация."
+                results.append(
+                    (
+                        cfg["title"],
+                        result
+                    )
+                )
+
+            except Exception as exc:
+                failures.append(
+                    (
+                        cfg["title"],
+                        repr(exc)
+                    )
                 )
 
                 print(
-                    "Автопост пропущен, "
-                    "чтобы не было дубля."
+                    f"✗ Ошибка "
+                    f"{cfg['title']}: "
+                    f"{repr(exc)}"
                 )
 
-                return
-
-        recent = await read_recent(
-            client,
-            channel
-        )
-
-        print(
-            "Прочитано последних постов:",
-            len(recent)
-        )
-
-        idea = choose_idea(
-            category,
-            recent
-        )
-
-        print(
-            "Фокус:",
-            idea
-        )
-
-        prompt = make_prompt(
-            cfg,
-            category,
-            idea,
-            recent
-        )
-
-        print(
-            "Генерирую пост..."
-        )
-
-        post = await asyncio.to_thread(
-            generate,
-            prompt
-        )
-
-        if len(post) < 300:
-            raise RuntimeError(
-                "Получился слишком "
-                "короткий текст: "
-                f"{len(post)} символов"
+            await asyncio.sleep(
+                3
             )
 
-        print()
+    print()
+    print(
+        "============== ИТОГ =============="
+    )
+
+    for title, status in results:
         print(
-            "=========== ПОСТ ==========="
+            f"{title:16} "
+            f"{status}"
         )
 
+    for title, error in failures:
         print(
-            post
+            f"{title:16} "
+            f"ERROR {error}"
         )
 
-        print(
-            "============================"
-        )
+    print(
+        "==================================="
+    )
 
-        print(
-            "Длина:",
-            len(post)
-        )
-
-        if DRY_RUN:
-            print()
-            print(
-                "✓ DRY RUN: "
-                "публикация НЕ отправлена"
-            )
-
-            return
-
-        message = await client.send_message(
-            channel,
-            post,
-            link_preview=False
-        )
-
-        print()
-        print(
-            "✓ ОПУБЛИКОВАНО"
-        )
-
-        print(
-            "Канал:",
-            cfg["title"]
-        )
-
-        print(
-            "message_id:",
-            message.id
+    if failures:
+        raise RuntimeError(
+            f"Ошибок каналов: "
+            f"{len(failures)}"
         )
 
 
