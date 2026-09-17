@@ -531,7 +531,7 @@ def generate(
 
     for attempt in range(
         1,
-        4
+        6
     ):
         request = urllib.request.Request(
             GROQ_URL,
@@ -573,8 +573,19 @@ def generate(
             )
 
             if not text:
+                if attempt < 5:
+                    wait = attempt * 15
+
+                    print(
+                        f"Groq вернул пустой ответ, "
+                        f"повтор через {wait} сек."
+                    )
+
+                    time.sleep(wait)
+                    continue
+
                 raise RuntimeError(
-                    "Groq вернул пустой ответ"
+                    "Groq 5 раз вернул пустой ответ"
                 )
 
             return clean(
@@ -593,10 +604,10 @@ def generate(
             if (
                 exc.code == 429
                 or exc.code >= 500
-            ) and attempt < 3:
+            ) and attempt < 5:
 
                 wait = (
-                    attempt * 15
+                    attempt * 20
                 )
 
                 print(
@@ -869,7 +880,7 @@ async def main():
                 )
 
             await asyncio.sleep(
-                3
+                10
             )
 
     print()
