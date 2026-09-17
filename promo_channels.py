@@ -190,8 +190,14 @@ def build_text(
         % len(TEMPLATES)
     ]
 
-    return template.format(
+    text = template.format(
         **cfg
+    )
+
+    return (
+        text
+        + "\n\n"
+        + "Связь с администрацией: @addvk39"
     )
 
 
@@ -199,6 +205,11 @@ async def join_target(
     client,
     entity
 ):
+    """
+    Возвращает True, если аккаунт
+    вступил в группу именно сейчас.
+    """
+
     try:
         await client(
             functions.channels.JoinChannelRequest(
@@ -206,12 +217,17 @@ async def join_target(
             )
         )
 
-        await asyncio.sleep(
-            2
+        print(
+            "  ↪ временно вступили "
+            "для проверки Send As"
         )
 
+        await asyncio.sleep(2)
+
+        return True
+
     except errors.UserAlreadyParticipantError:
-        pass
+        return False
 
     except errors.FloodWaitError as exc:
         if exc.seconds <= 180:
@@ -230,8 +246,9 @@ async def join_target(
                 )
             )
 
-        else:
-            raise
+            return True
+
+        raise
 
 
 async def can_send_as(
@@ -332,7 +349,7 @@ async def publish_one(
     text
 ):
     print(
-        f"\n{cfg['title']} "
+        f"\\n{cfg['title']} "
         f"→ {target_name}"
     )
 
@@ -343,55 +360,81 @@ async def publish_one(
 
     if DRY_RUN:
         print(
-            "  ✓ цель найдена"
+            "  ✓ цель существует"
         )
 
         print(
             "  PREVIEW:",
             text.replace(
-                "\n",
+                "\\n",
                 " "
-            )[:180]
+            )[:220]
         )
 
         return True
 
-    await join_target(
-        client,
-        target
-    )
 
-    allowed = await can_send_as(
-        client,
-        target,
-        source
-    )
-
-    if not allowed:
-        print(
-            "  ✗ этот канал нельзя использовать "
-            "как Send As здесь"
-        )
-
-        return False
+    joined_now = False
 
     try:
-        msg = await client.send_message(
+        # ----------------------------------------------------
+        # Сначала пробуем Send As БЕЗ нового вступления.
+        # Это лучший вариант для приватности.
+        # ----------------------------------------------------
+
+        allowed = await can_send_as(
+            client,
             target,
-            text,
-            link_preview=False,
-            send_as=source
+            source
         )
 
-        print(
-            f"  ✓ опубликовано "
-            f"message_id={msg.id}"
-        )
+        # ----------------------------------------------------
+        # Если Telegram не позволяет Send As без членства,
+        # временно вступаем и проверяем ещё раз.
+        # ----------------------------------------------------
 
-        return True
+        if not allowed:
+            joined_now = await join_target(
+                client,
+                target
+            )
 
-    except errors.FloodWaitError as exc:
-        if exc.seconds <= 180:
+            allowed = await can_send_as(
+                client,
+                target,
+                source
+            )
+
+        # ----------------------------------------------------
+        # НИКАКОГО FALLBACK НА ЛИЧНЫЙ АККАУНТ.
+        # Если каналом писать нельзя — пропускаем площадку.
+        # ----------------------------------------------------
+
+        if not allowed:
+            print(
+                "  ✗ Send As этого канала "
+                "недоступен"
+            )
+
+            return False
+
+
+        # ----------------------------------------------------
+        # Публикация ТОЛЬКО от имени канала.
+        # ----------------------------------------------------
+
+        try:
+            msg = await client.send_message(
+                target,
+                text,
+                link_preview=False,
+                send_as=source
+            )
+
+        except errors.FloodWaitError as exc:
+            if exc.seconds > 180:
+                raise
+
             print(
                 f"  FloodWait send: "
                 f"{exc.seconds} сек."
@@ -408,22 +451,90 @@ async def publish_one(
                 send_as=source
             )
 
+
+        # ----------------------------------------------------
+        # Дополнительная проверка:
+        # Telegram должен считать отправителем именно канал.
+        # ----------------------------------------------------
+
+        sender_id = getattr(
+            msg,
+            "sender_id",
+            None
+        )
+
+        if (
+            sender_id is not None
+            and sender_id != source.id
+        ):
             print(
-                f"  ✓ опубликовано после ожидания "
-                f"message_id={msg.id}"
+                "  ⚠ ВНИМАНИЕ: sender_id "
+                "не совпал с ID канала"
             )
 
-            return True
+            try:
+                await client.delete_messages(
+                    target,
+                    [msg.id]
+                )
 
-        raise
+                print(
+                    "  ✓ подозрительное сообщение удалено"
+                )
+
+            except Exception:
+                pass
+
+            return False
+
+
+        print(
+            f"  ✓ опубликовано ОТ ИМЕНИ КАНАЛА "
+            f"message_id={msg.id}"
+        )
+
+        return True
+
 
     except Exception as exc:
         print(
-            "  ✗ ошибка отправки:",
+            "  ✗ ошибка:",
             repr(exc)
         )
 
         return False
+
+
+    finally:
+        # ----------------------------------------------------
+        # Если личный аккаунт вступил только ради этой
+        # публикации — после неё пытаемся уйти.
+        #
+        # Это уменьшает публичное присутствие аккаунта,
+        # но не гарантирует сокрытие от администраторов.
+        # ----------------------------------------------------
+
+        if joined_now:
+            try:
+                await asyncio.sleep(3)
+
+                await client(
+                    functions.channels.LeaveChannelRequest(
+                        channel=target
+                    )
+                )
+
+                print(
+                    "  ↩ личный аккаунт "
+                    "вышел из группы"
+                )
+
+            except Exception as exc:
+                print(
+                    "  ⚠ выйти из группы "
+                    "не удалось:",
+                    repr(exc)
+                )
 
 
 async def main():
@@ -523,14 +634,8 @@ async def main():
         me = await client.get_me()
 
         print(
-            "Telegram account:",
-            me.id,
-            "Premium:",
-            getattr(
-                me,
-                "premium",
-                False
-            )
+            "Telegram session:",
+            me.id
         )
 
         sources = {}
