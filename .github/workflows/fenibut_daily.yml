@@ -3,10 +3,6 @@ name: Fenibut Daily AI Post
 on:
   workflow_dispatch:
 
-  schedule:
-    # 09:00 UTC = 12:00 Moscow time
-    - cron: "0 9 * * *"
-
 permissions:
   contents: read
 
