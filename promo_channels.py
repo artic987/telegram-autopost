@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import json
 import os
 import random
@@ -250,6 +251,80 @@ def clear_join_cooldown():
     JOIN_COOLDOWN_UNTIL = 0.0
 
 
+
+def stable_cooldown_days(
+    entity
+):
+    """
+    Каждая площадка получает постоянный
+    cooldown от 7 до 14 суток.
+    """
+
+    digest = hashlib.sha256(
+        entity.lower().encode(
+            "utf-8"
+        )
+    ).digest()
+
+    return (
+        7
+        + digest[0] % 8
+    )
+
+
+def normalize_target(
+    item,
+    *,
+    source="manual"
+):
+    if isinstance(
+        item,
+        str
+    ):
+        entity = item
+
+        return {
+            "entity": entity,
+            "category": "general",
+            "source": source,
+            "cooldown_days":
+                stable_cooldown_days(
+                    entity
+                ),
+        }
+
+
+    entity = (
+        item.get("entity")
+        or item.get("target")
+    )
+
+    if not entity:
+        return None
+
+
+    return {
+        **item,
+        "entity": entity,
+        "category": item.get(
+            "category",
+            "general"
+        ),
+        "source": item.get(
+            "source",
+            source
+        ),
+        "cooldown_days": int(
+            item.get(
+                "cooldown_days",
+                stable_cooldown_days(
+                    entity
+                )
+            )
+        ),
+    }
+
+
 def load_targets():
     data = json.loads(
         Path(
@@ -259,18 +334,311 @@ def load_targets():
         )
     )
 
-    targets = data.get(
+    targets = []
+
+
+    for item in data.get(
         "direct",
         []
-    )
-
-    if len(targets) < 8:
-        raise RuntimeError(
-            "В promo_targets.json "
-            "меньше 8 direct-целей"
+    ):
+        normalized = normalize_target(
+            item,
+            source="manual"
         )
 
+        if normalized:
+            targets.append(
+                normalized
+            )
+
+
+    for item in data.get(
+        "auto_discovered_direct",
+        []
+    ):
+        normalized = normalize_target(
+            item,
+            source="auto_discovery"
+        )
+
+        if normalized:
+            targets.append(
+                normalized
+            )
+
+
+    # Dedupe.
+    unique = {}
+
+    for item in targets:
+        unique[
+            item["entity"].lower()
+        ] = item
+
+
+    targets = list(
+        unique.values()
+    )
+
+
+    if not targets:
+        raise RuntimeError(
+            "Нет direct-площадок"
+        )
+
+
+    # Медицинские approved direct
+    # используем первыми.
+    targets.sort(
+        key=lambda x: (
+            0
+            if x.get("category")
+            == "medical"
+            else 1,
+
+            x["entity"].lower()
+        )
+    )
+
+
     return targets
+
+
+AUTO_POSITIVE = (
+    "реклама разрешена",
+    "разрешена реклама",
+    "бесплатная реклама",
+    "реклама бесплатно",
+    "можно размещать рекламу",
+    "можно размещать объявления",
+    "объявления разрешены",
+    "разрешены объявления",
+    "пиар разрешен",
+    "пиар разрешён",
+    "самопиар разрешен",
+    "самопиар разрешён",
+)
+
+
+AUTO_NEGATIVE = (
+    "реклама запрещена",
+    "запрещена реклама",
+    "без рекламы",
+    "авторассылка запрещена",
+    "запрещена авторассылка",
+    "по вопросам рекламы",
+    "по рекламе",
+    "купить рекламу",
+    "покупка рекламы",
+    "платная реклама",
+    "реклама платная",
+)
+
+
+def explicit_direct_permission(
+    about
+):
+    low = (
+        about
+        or ""
+    ).lower()
+
+    positive = any(
+        phrase in low
+        for phrase in AUTO_POSITIVE
+    )
+
+    negative = any(
+        phrase in low
+        for phrase in AUTO_NEGATIVE
+    )
+
+    return (
+        positive
+        and not negative
+    )
+
+
+async def get_about(
+    client,
+    entity
+):
+    try:
+        full = await client(
+            functions.channels.GetFullChannelRequest(
+                channel=entity
+            )
+        )
+
+        return (
+            full.full_chat.about
+            or ""
+        )
+
+    except Exception:
+        return ""
+
+
+async def rules_still_allow(
+    client,
+    target_cfg,
+    entity
+):
+    about = await get_about(
+        client,
+        entity
+    )
+
+    low = about.lower()
+
+
+    # Явный запрет действует даже
+    # на ранее добавленную площадку.
+    for phrase in AUTO_NEGATIVE:
+        if phrase in low:
+            print(
+                "  ✗ правила группы "
+                "теперь требуют отдельного "
+                "согласования или запрещают рекламу"
+            )
+
+            return False
+
+
+    # Автоматически найденные площадки
+    # каждый раз должны по-прежнему иметь
+    # явное разрешение direct-рекламы.
+    if (
+        target_cfg.get("source")
+        == "auto_discovery"
+    ):
+        if not explicit_direct_permission(
+            about
+        ):
+            print(
+                "  ✗ auto-target больше "
+                "не подтверждает direct-рекламу"
+            )
+
+            return False
+
+
+    return True
+
+
+async def last_our_promo_date(
+    client,
+    entity,
+    source_ids
+):
+    """
+    Ищем последние сообщения с нашим
+    административным контактом.
+
+    Затем убеждаемся, что отправителем
+    был один из наших восьми каналов.
+    """
+
+    try:
+        async for msg in client.iter_messages(
+            entity,
+            search=ADMIN_CONTACT,
+            limit=50
+        ):
+            sender_id = getattr(
+                msg,
+                "sender_id",
+                None
+            )
+
+            if (
+                sender_id
+                in source_ids
+            ):
+                return msg.date
+
+    except Exception as exc:
+        print(
+            "  ⚠ не удалось проверить "
+            "историю:",
+            repr(exc)
+        )
+
+
+    return None
+
+
+async def target_is_due(
+    client,
+    target_cfg,
+    entity,
+    source_ids
+):
+    cooldown = int(
+        target_cfg[
+            "cooldown_days"
+        ]
+    )
+
+    last_date = await last_our_promo_date(
+        client,
+        entity,
+        source_ids
+    )
+
+
+    if not last_date:
+        print(
+            f"  ✓ площадка новая, "
+            f"cooldown={cooldown} дней"
+        )
+
+        return True
+
+
+    now = datetime.now(
+        timezone.utc
+    )
+
+    if (
+        last_date.tzinfo
+        is None
+    ):
+        last_date = last_date.replace(
+            tzinfo=timezone.utc
+        )
+
+
+    age = now - last_date
+
+    age_days = (
+        age.total_seconds()
+        / 86400
+    )
+
+
+    if age_days < cooldown:
+        left = (
+            cooldown
+            - age_days
+        )
+
+        print(
+            f"  ⏳ последний наш пост "
+            f"{age_days:.1f} дн. назад; "
+            f"cooldown={cooldown}; "
+            f"ещё {left:.1f} дн."
+        )
+
+        return False
+
+
+    print(
+        f"  ✓ cooldown прошёл: "
+        f"{age_days:.1f}/{cooldown} дней"
+    )
+
+    return True
 
 
 def build_text(
@@ -725,14 +1093,37 @@ async def main():
         day_index = 0
 
 
-    start = (
-        day_index
-        * len(CHANNELS)
-    ) % len(targets)
+    medical_targets = [
+        x
+        for x in targets
+        if x.get("category")
+        == "medical"
+    ]
+
+    general_targets = [
+        x
+        for x in targets
+        if x.get("category")
+        != "medical"
+    ]
+
+
+    rng = random.Random(
+        today.toordinal()
+    )
+
+    rng.shuffle(
+        medical_targets
+    )
+
+    rng.shuffle(
+        general_targets
+    )
+
 
     ordered_targets = (
-        targets[start:]
-        + targets[:start]
+        medical_targets
+        + general_targets
     )
 
 
@@ -822,6 +1213,12 @@ async def main():
             )
 
 
+        source_ids = {
+            entity.id
+            for entity in sources.values()
+        }
+
+
         for channel_index, cfg in enumerate(
             CHANNELS
         ):
@@ -841,15 +1238,21 @@ async def main():
             while (
                 cursor
                 < len(ordered_targets)
-                and attempts < 10
+                and attempts < 60
             ):
-                target_name = (
+                target_cfg = (
                     ordered_targets[
                         cursor
                     ]
                 )
 
                 cursor += 1
+
+                target_name = (
+                    target_cfg[
+                        "entity"
+                    ]
+                )
 
                 if (
                     target_name
@@ -861,13 +1264,37 @@ async def main():
 
 
                 try:
-                    ok = await publish_one(
-                        client,
-                        cfg,
-                        source,
-                        target_name,
-                        text
+                    target_entity = (
+                        await resolve_target(
+                            client,
+                            target_name
+                        )
                     )
+
+
+                    if not await rules_still_allow(
+                        client,
+                        target_cfg,
+                        target_entity
+                    ):
+                        ok = False
+
+                    elif not await target_is_due(
+                        client,
+                        target_cfg,
+                        target_entity,
+                        source_ids
+                    ):
+                        ok = False
+
+                    else:
+                        ok = await publish_one(
+                            client,
+                            cfg,
+                            source,
+                            target_name,
+                            text
+                        )
 
                 except JoinCooldown as exc:
                     print()

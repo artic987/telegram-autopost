@@ -77,6 +77,30 @@
     {
       "target": "@izrigi",
       "contact": "@bokser213"
+    },
+    {
+      "entity": "@doctor_medic_chat",
+      "contact": "@alina_tech",
+      "category": "medical",
+      "note": "В публичном описании реклама через администратора"
+    },
+    {
+      "entity": "@lechebnoe_delo",
+      "contact": "@RinatHalilov",
+      "category": "medical",
+      "note": "Рекламные размещения отдельно"
+    },
+    {
+      "entity": "@katya_farm",
+      "contact": "@em_myaso",
+      "category": "medical",
+      "note": "Фармацевтический канал, реклама через администратора"
+    },
+    {
+      "entity": "@pharmmarketing",
+      "contact": "pharmmarketing.channel@gmail.com",
+      "category": "medical",
+      "note": "Фарммаркетинг, реклама через администрацию"
     }
   ],
   "disabled": [
@@ -96,5 +120,18 @@
       "target": "@club_reformer",
       "reason": "ChatWriteForbidden"
     }
-  ]
+  ],
+  "needs_review": [
+    {
+      "entity": "@medblogers_ad",
+      "category": "medical",
+      "note": "Медицинский рекламный чат; необходимо учитывать правила закрепа"
+    },
+    {
+      "entity": "@ProvisorChat",
+      "category": "medical",
+      "note": "Большой фармацевтический чат; явного разрешения рекламы в about нет"
+    }
+  ],
+  "auto_discovered_direct": []
 }
