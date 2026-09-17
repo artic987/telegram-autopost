@@ -24,6 +24,13 @@ from telethon import (
 
 from telethon.sessions import StringSession
 
+from promo_rules import (
+    direct_rules_blocked,
+    explicit_direct_permission,
+    fetch_rule_context,
+    medical_promo_blocked,
+)
+
 
 MOSCOW = timezone(
     timedelta(hours=3)
@@ -405,150 +412,104 @@ def load_targets():
     return targets
 
 
-DIRECT_RULE_PATTERNS = [
-    r"\bбесплатн\w*\s+"
-    r"(?:реклам\w*|пиар\w*|объявлен\w*)\b",
-
-    r"\b(?:реклам\w*|пиар\w*|объявлен\w*)"
-    r"\s+(?:совершенно\s+|полностью\s+)?"
-    r"бесплатн\w*\b",
-
-    r"\b(?:реклам\w*|объявлен\w*)"
-    r"\s+разрешен\w*\b",
-
-    r"\bразрешен\w*\s+"
-    r"(?:реклам\w*|объявлен\w*|самопиар\w*)\b",
-
-    r"\bможно\s+"
-    r"(?:размещать|публиковать|присылать|отправлять)"
-    r".{0,60}"
-    r"(?:реклам\w*|объявлен\w*|ссылк\w*)",
-
-    r"\bлюб\w*\s+(?:ваш\w*\s+)?реклам\w*"
-    r".{0,50}\bбесплатн\w*\b",
-]
-
-
-BLOCK_RULE_PATTERNS = [
-    r"\bреклам\w*\s+запрещен\w*\b",
-    r"\bзапрещен\w*\s+реклам\w*\b",
-
-    r"\bсамопиар\w*\s+запрещен\w*\b",
-
-    r"\bнесогласованн\w*\s+"
-    r"реклам\w*.{0,30}запрещен\w*\b",
-
-    r"\bавторассылк\w*\s+запрещен\w*\b",
-]
-
-
-ADMIN_RULE_PATTERNS = [
-    r"\bпо\s+вопросам\s+реклам\w*\b",
-
-    r"\bпо\s+реклам\w*\s+"
-    r"(?:обращ|писат|пишите|сюда)",
-
-    r"\b(?:купить|заказать)\s+реклам\w*\b",
-
-    r"\bплатн\w*\s+реклам\w*\b",
-
-    r"\bплатн\w*\s+размещен\w*\b",
-]
-
-
-def _rules_match(
-    text,
-    patterns
-):
-    text = (
-        text
-        or ""
-    ).lower().replace(
-        "ё",
-        "е"
-    )
-
-    return any(
-        re.search(
-            pattern,
-            text,
-            flags=re.I | re.S
-        )
-        for pattern in patterns
-    )
-
-
-def explicit_direct_permission(
-    about
-):
-    return (
-        _rules_match(
-            about,
-            DIRECT_RULE_PATTERNS
-        )
-        and not _rules_match(
-            about,
-            BLOCK_RULE_PATTERNS
-        )
-        and not _rules_match(
-            about,
-            ADMIN_RULE_PATTERNS
-        )
-    )
-
-
-def direct_rules_blocked(
-    about
-):
-    return (
-        _rules_match(
-            about,
-            BLOCK_RULE_PATTERNS
-        )
-        or _rules_match(
-            about,
-            ADMIN_RULE_PATTERNS
-        )
-    )
-
-
-async def get_about(
-    client,
-    entity
-):
-    try:
-        full = await client(
-            functions.channels.GetFullChannelRequest(
-                channel=entity
-            )
-        )
-
-        return (
-            full.full_chat.about
-            or ""
-        )
-
-    except Exception:
-        return ""
-
-
 async def rules_still_allow(
     client,
     target_cfg,
     entity
 ):
-    about = await get_about(
-        client,
-        entity
+    """
+    Перед каждой публикацией заново проверяем:
+      • описание;
+      • закреп;
+      • последние сообщения администраторов.
+
+    Для auto-discovery обязательно сохраняется
+    явное разрешение прямой рекламы.
+    """
+
+    try:
+        context = await fetch_rule_context(
+            client,
+            entity,
+            recent_limit=80,
+            max_admin_rules=12
+        )
+
+    except errors.FloodWaitError:
+        raise
+
+    except Exception as exc:
+        print(
+            "  ✗ не удалось проверить правила:",
+            repr(exc)
+        )
+
+        # Auto-target без проверки не используем.
+        if (
+            target_cfg.get(
+                "source"
+            )
+            == "auto_discovery"
+        ):
+            return False
+
+        return True
+
+
+    title = (
+        getattr(
+            entity,
+            "title",
+            ""
+        )
+        or ""
     )
 
 
-    if direct_rules_blocked(
-        about
+    rules_text = "\n\n".join(
+        x
+        for x in [
+            title,
+            context["combined"],
+        ]
+        if x
+    )
+
+
+    print(
+        "  rules:",
+        "pin="
+        + str(
+            bool(
+                context["pinned"]
+            )
+        ),
+        "admin_rules="
+        + str(
+            len(
+                context["admin_rules"]
+            )
+        )
+    )
+
+
+    if medical_promo_blocked(
+        rules_text
     ):
         print(
-            "  ✗ правила группы запрещают "
-            "direct-рекламу или требуют администратора"
+            "  ✗ правила запрещают "
+            "медицинскую/фармацевтическую тематику"
+        )
+
+        return False
+
+
+    if direct_rules_blocked(
+        rules_text
+    ):
+        print(
+            "  ✗ правила запрещают direct-рекламу "
+            "или требуют обращения к администратору"
         )
 
         return False
@@ -561,11 +522,12 @@ async def rules_still_allow(
         == "auto_discovery"
     ):
         if not explicit_direct_permission(
-            about
+            rules_text
         ):
             print(
                 "  ✗ auto-target больше "
-                "не подтверждает разрешение рекламы"
+                "не подтверждает разрешение "
+                "самостоятельной рекламы"
             )
 
             return False
