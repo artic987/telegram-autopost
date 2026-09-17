@@ -10,7 +10,7 @@ from telethon.sessions import StringSession
 
 
 CHANNEL = os.getenv("TG_CHANNEL", "@fenibut_buy")
-MODEL = os.getenv("OPENAI_MODEL", "gpt-5.6-luna")
+MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
 
 
 TOPICS = [
@@ -95,16 +95,32 @@ def make_prompt(topic, recent_posts):
 
 
 def generate_post(prompt):
-    api_key = os.environ["OPENAI_API_KEY"]
+    api_key = os.environ["GROQ_API_KEY"]
 
-    payload = json.dumps({
-        "model": MODEL,
-        "input": prompt,
-        "max_output_tokens": 900
-    }).encode("utf-8")
+    payload = json.dumps(
+        {
+            "model": MODEL,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "Ты редактор русскоязычного информационного "
+                        "Telegram-канала. Пиши ясно, естественно и кратко."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": prompt,
+                },
+            ],
+            "temperature": 0.8,
+            "max_completion_tokens": 900,
+        },
+        ensure_ascii=False,
+    ).encode("utf-8")
 
     request = urllib.request.Request(
-        "https://api.openai.com/v1/responses",
+        "https://api.groq.com/openai/v1/chat/completions",
         data=payload,
         method="POST",
         headers={
@@ -119,31 +135,21 @@ def generate_post(prompt):
     except urllib.error.HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace")
         raise RuntimeError(
-            f"OpenAI API HTTP {exc.code}: {body}"
+            f"Groq API HTTP {exc.code}: {body}"
         ) from exc
 
-    parts = []
-
-    for item in data.get("output", []):
-        if item.get("type") != "message":
-            continue
-
-        for content in item.get("content", []):
-            if content.get("type") == "output_text":
-                text = content.get("text", "")
-                if text:
-                    parts.append(text)
-
-    post = "\n".join(parts).strip()
+    try:
+        post = data["choices"][0]["message"]["content"].strip()
+    except Exception as exc:
+        raise RuntimeError(
+            "Groq не вернул текст: "
+            + json.dumps(data, ensure_ascii=False)[:1200]
+        ) from exc
 
     if not post:
-        raise RuntimeError(
-            "OpenAI API не вернул текст публикации: "
-            + json.dumps(data, ensure_ascii=False)[:1000]
-        )
+        raise RuntimeError("Groq вернул пустой текст")
 
     return post
-
 
 async def main():
     api_id = int(os.environ["TG_API_ID"])

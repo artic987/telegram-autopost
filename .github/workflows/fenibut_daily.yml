@@ -38,9 +38,9 @@ jobs:
           TG_API_ID: ${{ secrets.TG_API_ID }}
           TG_API_HASH: ${{ secrets.TG_API_HASH }}
           TG_STRING_SESSION: ${{ secrets.TG_STRING_SESSION }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
 
           TG_CHANNEL: "@fenibut_buy"
-          OPENAI_MODEL: "gpt-5.6-luna"
+          GROQ_MODEL: "openai/gpt-oss-20b"
 
         run: python -u fenibut_ai.py
