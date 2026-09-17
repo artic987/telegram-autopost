@@ -1,6 +1,5 @@
 {
   "direct": [
-    "@reklama_chatr",
     "@rektgkp",
     "@free_piarr",
     "@PR_FREEEE",
@@ -19,10 +18,6 @@
     "@piarchatvi",
     "@reklamy_chat",
     "@telegabirza",
-
-    "@business_club_portal",
-    "@club_guarantor",
-    "@club_reformer",
     "@club_marketing_gods",
     "@club_business_world",
     "@club_impulse",
@@ -33,13 +28,11 @@
     "@business_club_atlant",
     "@club_jeweler",
     "@club_london_city",
-
     "@adspbchat",
     "@reclamaspb",
     "@obyavleniyalnr",
     "@reklama_dnr_chat"
   ],
-
   "admin_only": [
     {
       "target": "@tvoymed",
@@ -65,7 +58,6 @@
       "target": "@germaniya_medicina",
       "contact": "@PR_3600"
     },
-
     {
       "target": "@poputkachat",
       "contact": "@vskonlinee_bot"
@@ -85,6 +77,24 @@
     {
       "target": "@izrigi",
       "contact": "@bokser213"
+    }
+  ],
+  "disabled": [
+    {
+      "target": "@reklama_chatr",
+      "reason": "требует платное действие при отправке"
+    },
+    {
+      "target": "@business_club_portal",
+      "reason": "ChatWriteForbidden"
+    },
+    {
+      "target": "@club_guarantor",
+      "reason": "ChatWriteForbidden"
+    },
+    {
+      "target": "@club_reformer",
+      "reason": "ChatWriteForbidden"
     }
   ]
 }
