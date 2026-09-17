@@ -1,0 +1,46 @@
+name: Fenibut Daily AI Post
+
+on:
+  workflow_dispatch:
+
+  schedule:
+    # 09:00 UTC = 12:00 Moscow time
+    - cron: "0 9 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fenibut-daily-ai-post
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: requirements-fenibut.txt
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements-fenibut.txt
+
+      - name: Generate and publish
+        env:
+          TG_API_ID: ${{ secrets.TG_API_ID }}
+          TG_API_HASH: ${{ secrets.TG_API_HASH }}
+          TG_STRING_SESSION: ${{ secrets.TG_STRING_SESSION }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+          TG_CHANNEL: "@fenibut_buy"
+          OPENAI_MODEL: "gpt-5.6-luna"
+
+        run: python -u fenibut_ai.py
