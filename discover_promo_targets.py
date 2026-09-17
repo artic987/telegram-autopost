@@ -2,12 +2,9 @@ import asyncio
 import json
 import os
 import random
+import re
 
-from datetime import (
-    datetime,
-    timezone,
-)
-
+from datetime import datetime, timezone
 from pathlib import Path
 
 from telethon import (
@@ -20,85 +17,194 @@ from telethon import (
 from telethon.sessions import StringSession
 
 
-FILE = Path(
-    "promo_targets.json"
-)
+FILE = Path("promo_targets.json")
 
 
 SEARCHES = [
-    (
-        "медицина реклама",
-        "medical"
-    ),
-    (
-        "фармацевт чат",
-        "medical"
-    ),
-    (
-        "фармацевтика реклама",
-        "medical"
-    ),
-    (
-        "психология реклама",
-        "medical"
-    ),
-    (
-        "здоровье реклама",
-        "medical"
-    ),
-    (
-        "бесплатная реклама",
-        "general"
-    ),
-    (
-        "пиар каналов",
-        "general"
-    ),
-    (
-        "доска объявлений",
-        "general"
-    ),
+    "медицина реклама",
+    "медицинский чат реклама",
+    "фармацевт чат",
+    "фармацевтика реклама",
+    "фармацевтический чат",
+    "лекарства чат",
+    "аптека чат",
+    "психология реклама",
+    "психотерапия чат",
+    "бесплатная реклама",
+    "бесплатные объявления",
+    "пиар каналов",
+    "реклама телеграм каналов",
+    "доска объявлений",
 ]
 
 
-POSITIVE = (
-    "реклама разрешена",
-    "разрешена реклама",
-    "бесплатная реклама",
-    "реклама бесплатно",
-    "можно размещать рекламу",
-    "можно размещать объявления",
-    "объявления разрешены",
-    "разрешены объявления",
-    "пиар разрешен",
-    "пиар разрешён",
-    "самопиар разрешен",
-    "самопиар разрешён",
-)
+# ------------------------------------------------------------
+# ЯВНО РАЗРЕШЁННАЯ ПРЯМАЯ РЕКЛАМА
+# ------------------------------------------------------------
+
+DIRECT_PATTERNS = [
+    r"\bбесплатн\w*\s+"
+    r"(?:реклам\w*|пиар\w*|объявлен\w*)\b",
+
+    r"\b(?:реклам\w*|пиар\w*|объявлен\w*)"
+    r"\s+(?:совершенно\s+|полностью\s+)?"
+    r"бесплатн\w*\b",
+
+    r"\b(?:реклам\w*|объявлен\w*)"
+    r"\s+разрешен\w*\b",
+
+    r"\bразрешен\w*\s+"
+    r"(?:реклам\w*|объявлен\w*|самопиар\w*)\b",
+
+    r"\bможно\s+"
+    r"(?:размещать|публиковать|присылать|отправлять)"
+    r".{0,60}"
+    r"(?:реклам\w*|объявлен\w*|ссылк\w*)",
+
+    r"\bлюб\w*\s+(?:ваш\w*\s+)?реклам\w*"
+    r".{0,50}\bбесплатн\w*\b",
+
+    r"\bгрупп\w*\s+для\s+"
+    r"(?:бесплатн\w*\s+)?"
+    r"(?:реклам\w*|объявлен\w*)\b",
+]
 
 
-NEGATIVE = (
-    "реклама запрещена",
-    "запрещена реклама",
-    "без рекламы",
-    "авторассылка запрещена",
-    "запрещена авторассылка",
-)
+# ------------------------------------------------------------
+# ЯВНЫЙ ЗАПРЕТ
+# ------------------------------------------------------------
+
+BLOCK_PATTERNS = [
+    r"\bреклам\w*\s+запрещен\w*\b",
+    r"\bзапрещен\w*\s+реклам\w*\b",
+
+    r"\bсамопиар\w*\s+запрещен\w*\b",
+
+    r"\bнесогласованн\w*\s+"
+    r"реклам\w*.{0,30}запрещен\w*\b",
+
+    r"\bссылк\w*.{0,20}запрещен\w*\b",
+
+    r"\bавторассылк\w*\s+запрещен\w*\b",
+    r"\bзапрещен\w*\s+авторассылк\w*\b",
+]
 
 
-ADMIN_ONLY = (
-    "по рекламе",
-    "по вопросам рекламы",
-    "купить рекламу",
-    "покупка рекламы",
-    "платная реклама",
-    "реклама платная",
-)
+# ------------------------------------------------------------
+# ТОЛЬКО ЧЕРЕЗ АДМИНА / ПЛАТНО
+#
+# \b перед "платн" принципиален:
+# "бесплатная" больше не совпадёт с "платная".
+# ------------------------------------------------------------
+
+ADMIN_PATTERNS = [
+    r"\bпо\s+вопросам\s+реклам\w*\b",
+
+    r"\bпо\s+реклам\w*\s+"
+    r"(?:обращ|писат|пишите|сюда)",
+
+    r"\bреклам\w*.{0,35}"
+    r"(?:админ\w*|менеджер\w*|бот\w*)",
+
+    r"\b(?:купить|заказать)\s+реклам\w*\b",
+
+    r"\bплатн\w*\s+реклам\w*\b",
+
+    r"\bплатн\w*\s+размещен\w*\b",
+
+    r"\bреклам\w*\s+платн\w*\b",
+]
 
 
-def entity_of(
-    item
+# ------------------------------------------------------------
+# МЕДИЦИНСКАЯ ТЕМАТИКА
+# "здоровье" само по себе недостаточно.
+# ------------------------------------------------------------
+
+MEDICAL_PATTERNS = [
+    r"\bмедицин\w*",
+    r"\bмедик\w*",
+    r"\bврач\w*",
+    r"\bдоктор\w*",
+    r"\bфармац\w*",
+    r"\bфармацевт\w*",
+    r"\bпровизор\w*",
+    r"\bлекарств\w*",
+    r"\bпрепарат\w*",
+    r"\bаптек\w*",
+    r"\bпсихиатр\w*",
+    r"\bпсихотерап\w*",
+    r"\bпсихолог\w*",
+]
+
+
+NOT_MEDICAL_PATTERNS = [
+    r"\bтаро\b",
+    r"\bэзотер\w*",
+    r"\bгороскоп\w*",
+    r"\bастролог\w*",
+    r"\bмагическ\w*",
+    r"\bнумеролог\w*",
+    r"\bгадани\w*",
+]
+
+
+def normal(text):
+    return (
+        text
+        or ""
+    ).lower().replace(
+        "ё",
+        "е"
+    )
+
+
+def matches(
+    text,
+    patterns
 ):
+    text = normal(text)
+
+    found = []
+
+    for pattern in patterns:
+        if re.search(
+            pattern,
+            text,
+            flags=re.I | re.S
+        ):
+            found.append(
+                pattern
+            )
+
+    return found
+
+
+def is_medical(
+    title,
+    about
+):
+    combined = (
+        normal(title)
+        + "\n"
+        + normal(about)
+    )
+
+    if matches(
+        combined,
+        NOT_MEDICAL_PATTERNS
+    ):
+        return False
+
+    return bool(
+        matches(
+            combined,
+            MEDICAL_PATTERNS
+        )
+    )
+
+
+def entity_of(item):
     if isinstance(
         item,
         str
@@ -120,22 +226,6 @@ def entity_of(
         ).lower()
 
     return ""
-
-
-def matched(
-    text,
-    phrases
-):
-    low = (
-        text
-        or ""
-    ).lower()
-
-    return [
-        phrase
-        for phrase in phrases
-        if phrase in low
-    ]
 
 
 async def about_for(
@@ -160,9 +250,7 @@ async def about_for(
 
 async def main():
     api_id = int(
-        os.environ[
-            "TG_API_ID"
-        ]
+        os.environ["TG_API_ID"]
     )
 
     api_hash = os.environ[
@@ -217,34 +305,32 @@ async def main():
         disabled,
     ):
         for item in section:
-            entity = entity_of(
+            key = entity_of(
                 item
             )
 
-            if entity:
+            if key:
                 known.add(
-                    entity
+                    key
                 )
 
 
     added_direct = 0
     added_admin = 0
     added_review = 0
+    blocked = 0
 
 
     async with TelegramClient(
-        StringSession(
-            session
-        ),
+        StringSession(session),
         api_id,
         api_hash
     ) as client:
 
-        # Не даём Telethon самому долго спать.
         client.flood_sleep_threshold = 30
 
 
-        for query, category in SEARCHES:
+        for query in SEARCHES:
             print()
             print(
                 "SEARCH:",
@@ -255,7 +341,7 @@ async def main():
                 result = await client(
                     functions.contacts.SearchRequest(
                         q=query,
-                        limit=40
+                        limit=50
                     )
                 )
 
@@ -265,7 +351,6 @@ async def main():
                     exc.seconds
                 )
 
-                # Не обходим лимит.
                 break
 
             except Exception as exc:
@@ -278,20 +363,18 @@ async def main():
 
 
             for entity in result.chats:
+
                 if not isinstance(
                     entity,
                     types.Channel
                 ):
                     continue
 
-
                 if not getattr(
                     entity,
                     "megagroup",
                     False
                 ):
-                    # В обычный broadcast-канал
-                    # пользователь сам писать не может.
                     continue
 
 
@@ -316,38 +399,57 @@ async def main():
                     continue
 
 
+                title = (
+                    getattr(
+                        entity,
+                        "title",
+                        ""
+                    )
+                    or ""
+                )
+
                 about = await about_for(
                     client,
                     entity
                 )
 
 
-                pos = matched(
-                    about,
-                    POSITIVE
+                combined = (
+                    title
+                    + "\n"
+                    + about
                 )
 
-                neg = matched(
-                    about,
-                    NEGATIVE
+
+                direct_match = matches(
+                    combined,
+                    DIRECT_PATTERNS
                 )
 
-                admin = matched(
-                    about,
-                    ADMIN_ONLY
+                blocked_match = matches(
+                    combined,
+                    BLOCK_PATTERNS
+                )
+
+                admin_match = matches(
+                    combined,
+                    ADMIN_PATTERNS
+                )
+
+
+                category = (
+                    "medical"
+                    if is_medical(
+                        title,
+                        about
+                    )
+                    else "general"
                 )
 
 
                 item = {
                     "entity": handle,
-                    "title": (
-                        getattr(
-                            entity,
-                            "title",
-                            ""
-                        )
-                        or ""
-                    ),
+                    "title": title,
                     "category": category,
                     "source": "auto_discovery",
                     "discovered_at":
@@ -356,18 +458,67 @@ async def main():
                         ).isoformat(),
                     "search_query": query,
                     "about_excerpt":
-                        about[:500],
+                        about[:700],
                 }
 
 
-                if (
-                    pos
-                    and not neg
-                    and not admin
-                ):
+                # --------------------------------------------
+                # ЯВНЫЙ ЗАПРЕТ:
+                # вообще не сохраняем как рекламную цель.
+                # --------------------------------------------
+
+                if blocked_match:
+                    blocked += 1
+
+                    print(
+                        "  BLOCKED:",
+                        handle
+                    )
+
+                    continue
+
+
+                # --------------------------------------------
+                # РЕКЛАМА ЧЕРЕЗ АДМИНА
+                # --------------------------------------------
+
+                if admin_match:
+                    item[
+                        "permission_type"
+                    ] = "admin_only"
+
+                    admin_only.append(
+                        item
+                    )
+
+                    known.add(
+                        key
+                    )
+
+                    added_admin += 1
+
+                    print(
+                        "  ADMIN ONLY:",
+                        handle,
+                        "|",
+                        category
+                    )
+
+                    continue
+
+
+                # --------------------------------------------
+                # ЯВНО РАЗРЕШЕНА ПРЯМАЯ РЕКЛАМА
+                # --------------------------------------------
+
+                if direct_match:
+                    item[
+                        "permission_type"
+                    ] = "direct"
+
                     item[
                         "permission_evidence"
-                    ] = pos[0]
+                    ] = direct_match[0]
 
                     auto_direct.append(
                         item
@@ -383,52 +534,38 @@ async def main():
                         "  ✓ AUTO DIRECT:",
                         handle,
                         "|",
-                        pos[0]
+                        category
                     )
 
-
-                elif admin:
-                    item[
-                        "permission_evidence"
-                    ] = admin[0]
-
-                    admin_only.append(
-                        item
-                    )
-
-                    known.add(
-                        key
-                    )
-
-                    added_admin += 1
-
-                    print(
-                        "  ADMIN ONLY:",
-                        handle
-                    )
+                    continue
 
 
-                elif not neg:
-                    review.append(
-                        item
-                    )
+                # --------------------------------------------
+                # ВСЁ ОСТАЛЬНОЕ НЕ АВТОПУБЛИКУЕМ.
+                # --------------------------------------------
 
-                    known.add(
-                        key
-                    )
+                review.append(
+                    item
+                )
 
-                    added_review += 1
+                known.add(
+                    key
+                )
 
-                    print(
-                        "  REVIEW:",
-                        handle
-                    )
+                added_review += 1
+
+                print(
+                    "  REVIEW:",
+                    handle,
+                    "|",
+                    category
+                )
 
 
                 await asyncio.sleep(
                     random.uniform(
-                        0.8,
-                        1.7
+                        0.7,
+                        1.5
                     )
                 )
 
@@ -454,7 +591,7 @@ async def main():
 
     print()
     print(
-        "=============================="
+        "===================================="
     )
 
     print(
@@ -473,12 +610,17 @@ async def main():
     )
 
     print(
-        "Всего auto direct:",
+        "BLOCKED:",
+        blocked
+    )
+
+    print(
+        "Всего AUTO DIRECT:",
         len(auto_direct)
     )
 
     print(
-        "=============================="
+        "===================================="
     )
 
 

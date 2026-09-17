@@ -3,6 +3,7 @@ import hashlib
 import json
 import os
 import random
+import re
 import time
 
 from datetime import (
@@ -404,58 +405,110 @@ def load_targets():
     return targets
 
 
-AUTO_POSITIVE = (
-    "реклама разрешена",
-    "разрешена реклама",
-    "бесплатная реклама",
-    "реклама бесплатно",
-    "можно размещать рекламу",
-    "можно размещать объявления",
-    "объявления разрешены",
-    "разрешены объявления",
-    "пиар разрешен",
-    "пиар разрешён",
-    "самопиар разрешен",
-    "самопиар разрешён",
-)
+DIRECT_RULE_PATTERNS = [
+    r"\bбесплатн\w*\s+"
+    r"(?:реклам\w*|пиар\w*|объявлен\w*)\b",
+
+    r"\b(?:реклам\w*|пиар\w*|объявлен\w*)"
+    r"\s+(?:совершенно\s+|полностью\s+)?"
+    r"бесплатн\w*\b",
+
+    r"\b(?:реклам\w*|объявлен\w*)"
+    r"\s+разрешен\w*\b",
+
+    r"\bразрешен\w*\s+"
+    r"(?:реклам\w*|объявлен\w*|самопиар\w*)\b",
+
+    r"\bможно\s+"
+    r"(?:размещать|публиковать|присылать|отправлять)"
+    r".{0,60}"
+    r"(?:реклам\w*|объявлен\w*|ссылк\w*)",
+
+    r"\bлюб\w*\s+(?:ваш\w*\s+)?реклам\w*"
+    r".{0,50}\bбесплатн\w*\b",
+]
 
 
-AUTO_NEGATIVE = (
-    "реклама запрещена",
-    "запрещена реклама",
-    "без рекламы",
-    "авторассылка запрещена",
-    "запрещена авторассылка",
-    "по вопросам рекламы",
-    "по рекламе",
-    "купить рекламу",
-    "покупка рекламы",
-    "платная реклама",
-    "реклама платная",
-)
+BLOCK_RULE_PATTERNS = [
+    r"\bреклам\w*\s+запрещен\w*\b",
+    r"\bзапрещен\w*\s+реклам\w*\b",
+
+    r"\bсамопиар\w*\s+запрещен\w*\b",
+
+    r"\bнесогласованн\w*\s+"
+    r"реклам\w*.{0,30}запрещен\w*\b",
+
+    r"\bавторассылк\w*\s+запрещен\w*\b",
+]
+
+
+ADMIN_RULE_PATTERNS = [
+    r"\bпо\s+вопросам\s+реклам\w*\b",
+
+    r"\bпо\s+реклам\w*\s+"
+    r"(?:обращ|писат|пишите|сюда)",
+
+    r"\b(?:купить|заказать)\s+реклам\w*\b",
+
+    r"\bплатн\w*\s+реклам\w*\b",
+
+    r"\bплатн\w*\s+размещен\w*\b",
+]
+
+
+def _rules_match(
+    text,
+    patterns
+):
+    text = (
+        text
+        or ""
+    ).lower().replace(
+        "ё",
+        "е"
+    )
+
+    return any(
+        re.search(
+            pattern,
+            text,
+            flags=re.I | re.S
+        )
+        for pattern in patterns
+    )
 
 
 def explicit_direct_permission(
     about
 ):
-    low = (
-        about
-        or ""
-    ).lower()
-
-    positive = any(
-        phrase in low
-        for phrase in AUTO_POSITIVE
-    )
-
-    negative = any(
-        phrase in low
-        for phrase in AUTO_NEGATIVE
-    )
-
     return (
-        positive
-        and not negative
+        _rules_match(
+            about,
+            DIRECT_RULE_PATTERNS
+        )
+        and not _rules_match(
+            about,
+            BLOCK_RULE_PATTERNS
+        )
+        and not _rules_match(
+            about,
+            ADMIN_RULE_PATTERNS
+        )
+    )
+
+
+def direct_rules_blocked(
+    about
+):
+    return (
+        _rules_match(
+            about,
+            BLOCK_RULE_PATTERNS
+        )
+        or _rules_match(
+            about,
+            ADMIN_RULE_PATTERNS
+        )
     )
 
 
@@ -489,27 +542,22 @@ async def rules_still_allow(
         entity
     )
 
-    low = about.lower()
+
+    if direct_rules_blocked(
+        about
+    ):
+        print(
+            "  ✗ правила группы запрещают "
+            "direct-рекламу или требуют администратора"
+        )
+
+        return False
 
 
-    # Явный запрет действует даже
-    # на ранее добавленную площадку.
-    for phrase in AUTO_NEGATIVE:
-        if phrase in low:
-            print(
-                "  ✗ правила группы "
-                "теперь требуют отдельного "
-                "согласования или запрещают рекламу"
-            )
-
-            return False
-
-
-    # Автоматически найденные площадки
-    # каждый раз должны по-прежнему иметь
-    # явное разрешение direct-рекламы.
     if (
-        target_cfg.get("source")
+        target_cfg.get(
+            "source"
+        )
         == "auto_discovery"
     ):
         if not explicit_direct_permission(
@@ -517,7 +565,7 @@ async def rules_still_allow(
         ):
             print(
                 "  ✗ auto-target больше "
-                "не подтверждает direct-рекламу"
+                "не подтверждает разрешение рекламы"
             )
 
             return False
