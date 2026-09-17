@@ -126,6 +126,7 @@ def generate_post(prompt):
         headers={
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
+            "User-Agent": "telegram-autopost/1.0",
         },
     )
 
