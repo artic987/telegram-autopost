@@ -1425,6 +1425,19 @@
       "admin_rules_excerpt": [],
       "rules_checked": true,
       "reason": "no explicit direct advertising permission"
+    },
+    {
+      "entity": "@remormil",
+      "title": "Пиар ролок/флудов/каналов/художников",
+      "category": "general",
+      "source": "auto_discovery",
+      "discovered_at": "2026-09-23T13:42:17.925368+00:00",
+      "search_query": "пиар каналов",
+      "about_excerpt": "Добро пожаловать!\nПРАВИЛА В ПЕРВОМ ЗАКРЕПЕ!\nПо всем вопросам обращаться к владельцу - @Liyamat\nПрайс — @Bombombonl\nВторой пиар чат — @ramdomon\n\nПРИХОДЫ ДЕЛАЕМ!",
+      "pinned_excerpt": "🌟 — ИЩУ ВЗ ОП НА ПИАР ЧАТЫ(через @gram_piarbot ):\nНА АВГУСТ!!!!!\n🌟@ramdomon — до 200 человек\n\n🌟 @remormil — до 100 человек\n\nеще делаю гарант:\n1 чел - 1.6 рублей/2⭐️\n— разницы нет, и в канал, и в чат\n\n\nписать ТОЛЬКО В ЛС: @Liyamat",
+      "admin_rules_excerpt": [],
+      "rules_checked": true,
+      "reason": "no explicit direct advertising permission"
     }
   ],
   "auto_discovered_direct": [
@@ -1588,6 +1601,34 @@
       "search_query": "бесплатная реклама",
       "about_excerpt": "Добро пожаловать в мою группу 🌼\nЗдесь можете выкладывать бесплатно свою рекламу 🌸\nЗАПРЕЩЕНО:\nмужской пол🚫\nгадание 🚫\nзаймы, кредиты🚫\nхарам объявления🚫\nТакже продаю базу прямых поставщиков и производителей, без посредников https://t.me/obzorbazu",
       "pinned_excerpt": "Всем Ас Салям алейкум. Я смотрю многие игнорируют правила, в частности мужчины, и заходят в группу. С этого дня только по заявке вход. Если заметили нарушающего(ую) пишем мне в личку так как многие без имени.",
+      "admin_rules_excerpt": [],
+      "rules_checked": true,
+      "permission_type": "direct",
+      "permission_evidence": "\\bбесплатн\\w*\\s+(?:реклам\\w*|пиар\\w*|объявлен\\w*)\\b"
+    },
+    {
+      "entity": "@Reklama_Russia_2024",
+      "title": "Бесплатная Реклама в России",
+      "category": "general",
+      "source": "auto_discovery",
+      "discovered_at": "2026-09-23T13:42:04.964751+00:00",
+      "search_query": "бесплатная реклама",
+      "about_excerpt": "Реклама по всей России",
+      "pinned_excerpt": "",
+      "admin_rules_excerpt": [],
+      "rules_checked": true,
+      "permission_type": "direct",
+      "permission_evidence": "\\bбесплатн\\w*\\s+(?:реклам\\w*|пиар\\w*|объявлен\\w*)\\b"
+    },
+    {
+      "entity": "@freepublicationsrussia",
+      "title": "Бесплатные объявления !",
+      "category": "general",
+      "source": "auto_discovery",
+      "discovered_at": "2026-09-23T13:42:11.896240+00:00",
+      "search_query": "бесплатные объявления",
+      "about_excerpt": "Одежда для тебя !",
+      "pinned_excerpt": "Для  покупки писать @mstrmv ( https://t.me/mstrmv ) Почтой по всей России от 400 рублей Личная встреча в Воронеже!  Более 24OО отзывов! Возврата и обмена нет !Всем мир !\n\nПолное описание товаров ⬇️ Клик\nФлисовая кофта / флиска  / Кофта / кофта на замке / мастерка  / зипка Hally Hansen \nРазмер : L\nСостояние : отличное , цвет черный , фирменный логотип вышит , оригинал ! \n2500₽ \n\nТолстовка / Зип Кофта / олимпийка / кофта на замке / мастерка / Adidas \nРазмер : M \nСостояние : отличное ( мини нюанс ) , серый цвет , фурнитура ykk , оригинал ! \n1850₽\n\nКофта  / Лонгслив Champion \nРазмер : L\n1950₽\n\nКофта / Свитшот / Лонгслив / свитер Hugo boss \nРазмер : L\n2400₽\n\nСпортивный костюм / олимпийка / штаны спортивные  Nike Tracksuit DriFit Academy\n Размер : M \n4900₽\n\nКофта / олимпийка / кофта на замке / мастерка / ветровка винтажная Fila \nРазмер : M\n1600₽\n\nРубашка джинсовая Tommy Hilfiger \nРазмер : M\n12",
       "admin_rules_excerpt": [],
       "rules_checked": true,
       "permission_type": "direct",
