@@ -1601,6 +1601,19 @@
       "admin_rules_excerpt": [],
       "rules_checked": true,
       "reason": "no explicit direct advertising permission"
+    },
+    {
+      "entity": "@rpekschat",
+      "title": "РЭПТ | Психотерапия Chat",
+      "category": "medical",
+      "source": "auto_discovery",
+      "discovered_at": "2026-09-26T13:09:24.694241+00:00",
+      "search_query": "психотерапия чат",
+      "about_excerpt": "",
+      "pinned_excerpt": "Буду выкладывать фото, сейчас езжу по Грузии! Не знаю можно ли сказать, что это рабочая поездка, если я работаю онлайн? Думаю, что можно!",
+      "admin_rules_excerpt": [],
+      "rules_checked": true,
+      "reason": "no explicit direct advertising permission"
     }
   ],
   "auto_discovered_direct": [
