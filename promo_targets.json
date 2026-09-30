@@ -1642,6 +1642,19 @@
       "admin_rules_excerpt": [],
       "rules_checked": true,
       "reason": "no explicit direct advertising permission"
+    },
+    {
+      "entity": "@lekarstva_A",
+      "title": "Азиза_а💕 Chat",
+      "category": "general",
+      "source": "auto_discovery",
+      "discovered_at": "2026-09-30T14:57:42.492362+00:00",
+      "search_query": "лекарства чат",
+      "about_excerpt": "",
+      "pinned_excerpt": "",
+      "admin_rules_excerpt": [],
+      "rules_checked": true,
+      "reason": "no explicit direct advertising permission"
     }
   ],
   "auto_discovered_direct": [
