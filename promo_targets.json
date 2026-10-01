@@ -583,6 +583,19 @@
       "admin_rules_excerpt": [],
       "rules_checked": true,
       "reason": "rules prohibit medical/pharma promotion"
+    },
+    {
+      "entity": "@piarchar",
+      "title": "🔥🚀Бесплатная реклама/пиар🚀🔥",
+      "category": "general",
+      "source": "auto_discovery",
+      "discovered_at": "2026-10-01T15:30:19.297277+00:00",
+      "search_query": "бесплатная реклама",
+      "about_excerpt": "Смело рекламируй свои каналы, чаты и всё остальное!\n\n⛔️ ЗАПРЕЩЕНО:\n❌Порнография\n❌Наркотики\n❌Мат\n\nАдмин: @TargetKat\nРеклама (закреп)",
+      "pinned_excerpt": "",
+      "admin_rules_excerpt": [],
+      "rules_checked": true,
+      "reason": "rules prohibit medical/pharma promotion"
     }
   ],
   "needs_review": [
