@@ -32,7 +32,10 @@ from promo_rules import (
 
 
 FILE = Path(
-    "promo_targets.json"
+    os.getenv(
+        "PROMO_TARGETS_FILE",
+        "promo_targets.json"
+    )
 )
 
 

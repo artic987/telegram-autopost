@@ -94,7 +94,10 @@ SCHEDULE_START = date(
 ADMIN_CONTACT = "@addvk39"
 
 TARGETS_PATH = Path(
-    "promo_targets.json"
+    os.getenv(
+        "PROMO_TARGETS_FILE",
+        "promo_targets.json"
+    )
 )
 
 

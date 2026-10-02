@@ -20,7 +20,12 @@ from promo_rules import (
 )
 
 
-FILE = Path("promo_targets.json")
+FILE = Path(
+    os.getenv(
+        "PROMO_TARGETS_FILE",
+        "promo_targets.json"
+    )
+)
 
 MAX_CHECKS = int(
     os.getenv(
