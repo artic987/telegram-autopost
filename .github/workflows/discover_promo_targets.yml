@@ -3,10 +3,6 @@ name: Discover Promo Targets
 on:
   workflow_dispatch:
 
-  schedule:
-    # Каждый день около 11:20 МСК.
-    - cron: "20 8 * * *"
-
 permissions:
   contents: write
 

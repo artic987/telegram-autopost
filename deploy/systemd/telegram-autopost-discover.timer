@@ -1,0 +1,11 @@
+[Unit]
+Description=Discover permitted Telegram promotion groups three times daily
+
+[Timer]
+OnCalendar=*-*-* 05,11,17:00:00 UTC
+Persistent=true
+AccuracySec=1min
+Unit=telegram-autopost@discover.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,11 @@
+[Unit]
+Description=Telegram personal helper hourly
+
+[Timer]
+OnCalendar=*-*-* *:37:00 UTC
+Persistent=true
+AccuracySec=1min
+Unit=telegram-autopost@personal.service
+
+[Install]
+WantedBy=timers.target

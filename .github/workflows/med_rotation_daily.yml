@@ -8,12 +8,6 @@ on:
         required: false
         default: true
         type: boolean
-
-  # Запускаем проверку ежедневно.
-  # Скрипт сам публикует только через день.
-  schedule:
-    - cron: "40 9 * * *"
-
 permissions:
   contents: read
 

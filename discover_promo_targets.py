@@ -62,14 +62,42 @@ SEARCHES = [
     # Общие доски
     "бесплатная реклама",
     "бесплатные объявления",
+    "бесплатный пиар",
+    "пиар чат",
     "пиар каналов",
+    "реклама каналов чат",
     "реклама телеграм каналов",
+    "реклама телеграм групп",
+    "самопиар разрешен",
+    "размещение ссылок разрешено",
+    "взаимопиар телеграм",
+    "реклама блогов телеграм",
     "доска объявлений",
+
+    # Дополнительные тематические запросы
+    "здоровье реклама",
+    "здоровье чат реклама",
+    "психология пиар",
+    "психология чат реклама",
+    "фарма чат реклама",
+    "медицинские каналы реклама",
+    "медицина объявления",
 ]
 
 
-MAX_INSPECTED_PER_RUN = 70
-MAX_NEW_PER_QUERY = 12
+MAX_INSPECTED_PER_RUN = int(
+    os.getenv(
+        "MAX_INSPECTED_PER_RUN",
+        "120"
+    )
+)
+
+MAX_NEW_PER_QUERY = int(
+    os.getenv(
+        "MAX_NEW_PER_QUERY",
+        "20"
+    )
+)
 
 
 def entity_of(item):
@@ -176,6 +204,13 @@ async def main():
 
     inspected = 0
     stop_search = False
+
+    print(
+        "Discovery limits:",
+        f"inspect={MAX_INSPECTED_PER_RUN}",
+        f"per_query={MAX_NEW_PER_QUERY}",
+        f"queries={len(SEARCHES)}"
+    )
 
 
     async with TelegramClient(

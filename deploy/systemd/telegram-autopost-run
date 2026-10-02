@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP="/opt/telegram-autopost"
+ENV_FILE="/etc/telegram-autopost.env"
+MODE="${1:-}"
+
+cd "$APP"
+if [[ -f "$ENV_FILE" ]]; then
+  set -a
+  source "$ENV_FILE"
+  set +a
+fi
+
+exec 9>/run/telegram-autopost.lock
+if ! flock -w 3300 9; then
+  echo "Telegram task skipped: another task still owns the lock"
+  exit 0
+fi
+
+need_tg=0
+for key in TG_API_ID TG_API_HASH TG_STRING_SESSION; do
+  if [[ -z "${!key:-}" ]]; then
+    echo "Telegram task skipped: missing $key in $ENV_FILE"
+    need_tg=1
+  fi
+done
+[[ "$need_tg" -eq 0 ]] || exit 0
+
+PY="$APP/venv/bin/python"
+case "$MODE" in
+  main)
+    export DELAY_MIN_SECONDS="${DELAY_MIN_SECONDS:-45}"
+    export DELAY_MAX_SECONDS="${DELAY_MAX_SECONDS:-75}"
+    export RUN_CADENCE="daily"
+    export RUN_MODE="post"
+    exec "$PY" -u main.py
+    ;;
+  promo)
+    export EVENT_NAME="schedule"
+    export DRY_RUN="false"
+    export PROMO_PAUSE_MIN="${PROMO_PAUSE_MIN:-55}"
+    export PROMO_PAUSE_MAX="${PROMO_PAUSE_MAX:-85}"
+    export MAX_NEW_JOINS_PER_RUN="${MAX_NEW_JOINS_PER_RUN:-4}"
+    export PROMO_RUN_SLOT="$(TZ=Europe/Moscow date +%H)"
+    exec "$PY" -u promo_channels.py
+    ;;
+  discover)
+    export MAX_INSPECTED_PER_RUN="${MAX_INSPECTED_PER_RUN:-120}"
+    export MAX_NEW_PER_QUERY="${MAX_NEW_PER_QUERY:-20}"
+    exec "$PY" -u discover_promo_targets.py
+    ;;
+  maintain)
+    export PROMO_MAINTAIN_MAX_CHECKS="${PROMO_MAINTAIN_MAX_CHECKS:-80}"
+    export PROMO_MAINTAIN_PAUSE_MIN="${PROMO_MAINTAIN_PAUSE_MIN:-0.8}"
+    export PROMO_MAINTAIN_PAUSE_MAX="${PROMO_MAINTAIN_PAUSE_MAX:-1.6}"
+    exec "$PY" -u promo_maintain.py
+    ;;
+  med)
+    if [[ -z "${GROQ_API_KEY:-}" ]]; then
+      echo "Medication task skipped: missing GROQ_API_KEY in $ENV_FILE"
+      exit 0
+    fi
+    export GROQ_MODEL="${GROQ_MODEL:-openai/gpt-oss-20b}"
+    export EVENT_NAME="schedule"
+    export DRY_RUN="false"
+    exec "$PY" -u med_rotation_ai.py
+    ;;
+  personal)
+    exec "$PY" -u personal.py
+    ;;
+  *)
+    echo "Usage: $0 {main|promo|discover|maintain|med|personal}" >&2
+    exit 2
+    ;;
+esac

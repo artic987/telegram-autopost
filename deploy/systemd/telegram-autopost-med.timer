@@ -1,0 +1,11 @@
+[Unit]
+Description=Medication channel rotation check
+
+[Timer]
+OnCalendar=*-*-* 09:40:00 UTC
+Persistent=true
+AccuracySec=1min
+Unit=telegram-autopost@med.service
+
+[Install]
+WantedBy=timers.target

@@ -8,11 +8,6 @@ on:
         required: false
         default: true
         type: boolean
-
-  schedule:
-    # 16:30 UTC = примерно 19:30 МСК
-    - cron: "30 16 * * *"
-
 permissions:
   contents: read
 

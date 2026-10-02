@@ -68,6 +68,20 @@ PAUSE_MAX = float(
     )
 )
 
+MAX_NEW_JOINS_PER_RUN = int(
+    os.getenv(
+        "MAX_NEW_JOINS_PER_RUN",
+        "4"
+    )
+)
+
+PROMO_RUN_SLOT = os.getenv(
+    "PROMO_RUN_SLOT",
+    str(datetime.now(MOSCOW).hour)
+)
+
+NEW_JOINS_THIS_RUN = 0
+
 SCHEDULE_START = date(
     2026,
     9,
@@ -229,6 +243,10 @@ class SendCooldown(Exception):
             f"Send cooldown "
             f"{self.seconds} sec"
         )
+
+
+class JoinLimit(Exception):
+    pass
 
 
 def set_join_cooldown(
@@ -423,8 +441,9 @@ async def rules_still_allow(
       • закреп;
       • последние сообщения администраторов.
 
-    Для auto-discovery обязательно сохраняется
-    явное разрешение прямой рекламы.
+    Публикуем только там, где прямо подтверждено
+    самостоятельное размещение рекламы или ссылок.
+    Правило одинаковое для ручных и найденных целей.
     """
 
     try:
@@ -444,16 +463,8 @@ async def rules_still_allow(
             repr(exc)
         )
 
-        # Auto-target без проверки не используем.
-        if (
-            target_cfg.get(
-                "source"
-            )
-            == "auto_discovery"
-        ):
-            return False
-
-        return True
+        # Без свежей проверки правил не публикуем.
+        return False
 
 
     title = (
@@ -515,23 +526,20 @@ async def rules_still_allow(
         return False
 
 
-    if (
-        target_cfg.get(
-            "source"
-        )
-        == "auto_discovery"
+    if not explicit_direct_permission(
+        rules_text
     ):
-        if not explicit_direct_permission(
-            rules_text
-        ):
-            print(
-                "  ✗ auto-target больше "
-                "не подтверждает разрешение "
-                "самостоятельной рекламы"
-            )
+        print(
+            "  ✗ нет явного разрешения "
+            "самостоятельной рекламы/ссылок"
+        )
 
-            return False
+        return False
 
+
+    print(
+        "  ✓ самостоятельная реклама явно разрешена"
+    )
 
     return True
 
@@ -655,10 +663,18 @@ def build_text(
     cfg,
     day_index
 ):
+    try:
+        slot_index = int(
+            PROMO_RUN_SLOT
+        ) // 4
+    except ValueError:
+        slot_index = 0
+
     template = TEMPLATES[
         (
             day_index
             + CHANNELS.index(cfg)
+            + slot_index
         )
         % len(TEMPLATES)
     ]
@@ -770,21 +786,44 @@ async def join_target(
     entity
 ):
     """
-    True  = вступили именно сейчас.
+    True  = вступили именно сейчас и остаёмся участником.
     False = уже были участником.
 
-    При большом FloodWait дальнейшие
-    JoinChannelRequest в этом run блокируются.
+    Новые вступления ограничены на один запуск, чтобы не
+    провоцировать Telegram anti-flood.
     """
 
-    remaining = (
-        join_cooldown_remaining()
-    )
+    global NEW_JOINS_THIS_RUN
+
+    # Сначала проверяем, не состоим ли уже в группе.
+    try:
+        await client(
+            functions.channels.GetParticipantRequest(
+                channel=entity,
+                participant=types.InputPeerSelf()
+            )
+        )
+
+        return False
+
+    except errors.UserNotParticipantError:
+        pass
+
+    except Exception:
+        pass
+
+
+    if NEW_JOINS_THIS_RUN >= MAX_NEW_JOINS_PER_RUN:
+        raise JoinLimit()
+
+
+    remaining = join_cooldown_remaining()
 
     if remaining > 0:
         raise JoinCooldown(
             remaining
         )
+
 
     for attempt in range(2):
         try:
@@ -794,8 +833,12 @@ async def join_target(
                 )
             )
 
+            NEW_JOINS_THIS_RUN += 1
+
             print(
-                "  ↪ временно вступили"
+                "  ↪ вступили и остаёмся в группе "
+                f"({NEW_JOINS_THIS_RUN}/"
+                f"{MAX_NEW_JOINS_PER_RUN} за запуск)"
             )
 
             await asyncio.sleep(2)
@@ -819,17 +862,10 @@ async def join_target(
                 f"{seconds} сек."
             )
 
-            # Один разумный FloodWait
-            # можно спокойно переждать.
             if (
                 seconds <= 180
                 and attempt == 0
             ):
-                print(
-                    "  Ждём один раз, "
-                    "новые запросы не отправляем..."
-                )
-
                 await asyncio.sleep(
                     seconds + 3
                 )
@@ -838,16 +874,14 @@ async def join_target(
 
                 continue
 
-            # Большой FloodWait:
-            # никаких следующих JoinChannelRequest.
             raise JoinCooldown(
                 seconds
             )
 
+
     raise JoinCooldown(
         180
     )
-
 
 async def leave_if_joined_now(
     client,
@@ -910,7 +944,8 @@ async def publish_one(
     cfg,
     source,
     target_name,
-    text
+    text,
+    personal_id
 ):
     print()
     print(
@@ -940,43 +975,51 @@ async def publish_one(
 
 
     joined_now = False
+    posted = False
 
     try:
-        # Сначала без вступления.
-        allowed = await can_send_as(
+        send_as_channel = await can_send_as(
             client,
             target,
             source
         )
 
-        if not allowed:
+        if not send_as_channel:
             joined_now = await join_target(
                 client,
                 target
             )
 
-            allowed = await can_send_as(
+            send_as_channel = await can_send_as(
                 client,
                 target,
                 source
             )
 
-        # Никакой отправки от личного профиля.
-        if not allowed:
-            print(
-                "  ✗ Send As этого "
-                "канала недоступен"
-            )
-
-            return False
 
         try:
-            msg = await client.send_message(
-                target,
-                text,
-                link_preview=False,
-                send_as=source
-            )
+            if send_as_channel:
+                msg = await client.send_message(
+                    target,
+                    text,
+                    link_preview=False,
+                    send_as=source
+                )
+
+                mode = "канала"
+                expected_sender = source.id
+
+            else:
+                # Fallback разрешён только после rules_still_allow(),
+                # то есть на площадке с явным разрешением саморекламы.
+                msg = await client.send_message(
+                    target,
+                    text,
+                    link_preview=False
+                )
+
+                mode = "личного аккаунта"
+                expected_sender = personal_id
 
         except errors.FloodWaitError as exc:
             seconds = int(
@@ -997,12 +1040,23 @@ async def publish_one(
                 seconds + 3
             )
 
-            msg = await client.send_message(
-                target,
-                text,
-                link_preview=False,
-                send_as=source
-            )
+            if send_as_channel:
+                msg = await client.send_message(
+                    target,
+                    text,
+                    link_preview=False,
+                    send_as=source
+                )
+                mode = "канала"
+                expected_sender = source.id
+            else:
+                msg = await client.send_message(
+                    target,
+                    text,
+                    link_preview=False
+                )
+                mode = "личного аккаунта"
+                expected_sender = personal_id
 
 
         sender_id = getattr(
@@ -1011,15 +1065,13 @@ async def publish_one(
             None
         )
 
-        # Дополнительный контроль приватности.
         if (
             sender_id is not None
-            and sender_id
-            != source.id
+            and sender_id != expected_sender
         ):
             print(
-                "  ⚠ sender_id не совпал "
-                "с ID канала"
+                "  ⚠ Telegram отправил сообщение "
+                "не от ожидаемого отправителя"
             )
 
             try:
@@ -1027,11 +1079,6 @@ async def publish_one(
                     target,
                     [msg.id]
                 )
-
-                print(
-                    "  ✓ сообщение удалено"
-                )
-
             except Exception:
                 pass
 
@@ -1039,9 +1086,31 @@ async def publish_one(
 
 
         print(
-            f"  ✓ опубликовано "
-            f"ОТ ИМЕНИ КАНАЛА "
+            f"  ✓ опубликовано ОТ ИМЕНИ {mode.upper()} "
             f"message_id={msg.id}"
+        )
+
+        # Автомодераторы часто удаляют рекламу не мгновенно.
+        await asyncio.sleep(10)
+
+        check = await client.get_messages(
+            target,
+            ids=msg.id
+        )
+
+        if check is None:
+            print(
+                "  ✗ сообщение исчезло после отправки; "
+                "площадку не считаем успешной"
+            )
+
+            return False
+
+
+        posted = True
+
+        print(
+            "  ✓ сообщение осталось в группе"
         )
 
         return True
@@ -1049,9 +1118,22 @@ async def publish_one(
 
     except (
         JoinCooldown,
+        JoinLimit,
         SendCooldown,
     ):
         raise
+
+    except (
+        errors.ChatWriteForbiddenError,
+        errors.ChannelPrivateError,
+        errors.UserBannedInChannelError,
+    ) as exc:
+        print(
+            "  ✗ писать нельзя:",
+            type(exc).__name__
+        )
+
+        return False
 
     except Exception as exc:
         print(
@@ -1062,14 +1144,15 @@ async def publish_one(
         return False
 
     finally:
-        if joined_now:
+        # Если вступили специально для попытки, но пост не прошёл,
+        # выходим. Успешные рекламные группы сохраняем.
+        if joined_now and not posted:
             await asyncio.sleep(3)
 
             await leave_if_joined_now(
                 client,
                 target
             )
-
 
 async def main():
     today = datetime.now(
@@ -1119,7 +1202,7 @@ async def main():
 
 
     rng = random.Random(
-        today.toordinal()
+        f"{today.isoformat()}:{PROMO_RUN_SLOT}"
     )
 
     rng.shuffle(
@@ -1181,6 +1264,16 @@ async def main():
     )
 
     print(
+        "Слот продвижения:",
+        PROMO_RUN_SLOT
+    )
+
+    print(
+        "Лимит новых вступлений:",
+        MAX_NEW_JOINS_PER_RUN
+    )
+
+    print(
         "====================================="
     )
 
@@ -1227,6 +1320,12 @@ async def main():
             entity.id
             for entity in sources.values()
         }
+
+        # Cooldown должен видеть и публикации, отправленные
+        # fallback-режимом от личного аккаунта.
+        source_ids.add(
+            me.id
+        )
 
 
         for channel_index, cfg in enumerate(
@@ -1303,8 +1402,30 @@ async def main():
                             cfg,
                             source,
                             target_name,
-                            text
+                            text,
+                            me.id
                         )
+
+                except JoinLimit:
+                    print()
+                    print(
+                        "⚠ Достигнут лимит новых вступлений "
+                        f"за запуск: {MAX_NEW_JOINS_PER_RUN}."
+                    )
+
+                    deferred.append(
+                        cfg["title"]
+                    )
+
+                    for rest in CHANNELS[
+                        channel_index + 1:
+                    ]:
+                        deferred.append(
+                            rest["title"]
+                        )
+
+                    stop_due_limit = True
+                    break
 
                 except JoinCooldown as exc:
                     print()

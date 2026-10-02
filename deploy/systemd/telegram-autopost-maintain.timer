@@ -1,0 +1,11 @@
+[Unit]
+Description=Recheck Telegram promotion targets daily
+
+[Timer]
+OnCalendar=*-*-* 04:30:00 UTC
+Persistent=true
+AccuracySec=1min
+Unit=telegram-autopost@maintain.service
+
+[Install]
+WantedBy=timers.target

@@ -2,13 +2,6 @@ name: Telegram Personal Helper
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - personal.py
-      - tests/test_personal.py
-      - .github/workflows/personal.yml
-  schedule:
-    - cron: "37 * * * *"
 
 permissions:
   contents: read

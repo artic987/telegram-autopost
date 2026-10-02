@@ -1,0 +1,12 @@
+[Unit]
+Description=Telegram autopost task (%i)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/telegram-autopost
+EnvironmentFile=-/etc/telegram-autopost.env
+ExecStart=/usr/local/bin/telegram-autopost-run %i
+TimeoutStartSec=55min
+Nice=5
