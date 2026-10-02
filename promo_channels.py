@@ -1523,6 +1523,65 @@ async def main():
         )
 
 
+        # Сначала используем рекламные группы, где аккаунт уже
+        # состоит: это снижает число JoinChannelRequest и FloodWait.
+        joined_handles = set()
+
+        async for dialog in client.iter_dialogs():
+            entity = dialog.entity
+
+            if not isinstance(
+                entity,
+                types.Channel
+            ):
+                continue
+
+            if not getattr(
+                entity,
+                "megagroup",
+                False
+            ):
+                continue
+
+            username = getattr(
+                entity,
+                "username",
+                None
+            )
+
+            if username:
+                joined_handles.add(
+                    "@"
+                    + username.lower()
+                )
+
+
+        ordered_targets.sort(
+            key=lambda item: (
+                0
+                if item["entity"].lower()
+                in joined_handles
+                else 1,
+                -int(
+                    item.get(
+                        "priority",
+                        0
+                    )
+                ),
+            )
+        )
+
+        print(
+            "Уже состоим в активных promo-группах:",
+            sum(
+                1
+                for item in ordered_targets
+                if item["entity"].lower()
+                in joined_handles
+            )
+        )
+
+
         for channel_index, cfg in enumerate(
             CHANNELS
         ):

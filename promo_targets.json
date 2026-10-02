@@ -1862,7 +1862,9 @@
       "admin_rules_excerpt": [],
       "rules_checked": true,
       "permission_type": "direct",
-      "permission_evidence": "\\bбесплатн\\w*\\s+(?:реклам\\w*|пиар\\w*|объявлен\\w*)\\b"
+      "permission_evidence": "\\bбесплатн\\w*\\s+(?:реклам\\w*|пиар\\w*|объявлен\\w*)\\b",
+      "priority": 100,
+      "priority_reason": "message was accepted in live promo test"
     }
   ]
 }
