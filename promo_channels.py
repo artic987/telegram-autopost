@@ -978,23 +978,18 @@ async def publish_one(
     posted = False
 
     try:
+        # Для записи в супергруппу аккаунт должен быть участником.
+        # В успешных группах остаёмся; новые вступления лимитируются.
+        joined_now = await join_target(
+            client,
+            target
+        )
+
         send_as_channel = await can_send_as(
             client,
             target,
             source
         )
-
-        if not send_as_channel:
-            joined_now = await join_target(
-                client,
-                target
-            )
-
-            send_as_channel = await can_send_as(
-                client,
-                target,
-                source
-            )
 
 
         try:
