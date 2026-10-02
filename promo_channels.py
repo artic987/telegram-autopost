@@ -429,8 +429,7 @@ def mark_target_inactive(
             ensure_ascii=False,
             indent=2,
         )
-        + "
-",
+        + "\n",
         encoding="utf-8",
     )
 
