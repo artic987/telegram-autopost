@@ -25,9 +25,12 @@ from telethon import (
 from telethon.sessions import StringSession
 
 from promo_rules import (
+    ADMIN_ONLY_PATTERNS,
+    BLOCK_PATTERNS,
     direct_rules_blocked,
     explicit_direct_permission,
     fetch_rule_context,
+    matches,
     medical_promo_blocked,
 )
 
@@ -71,7 +74,7 @@ PAUSE_MAX = float(
 MAX_NEW_JOINS_PER_RUN = int(
     os.getenv(
         "MAX_NEW_JOINS_PER_RUN",
-        "4"
+        "3"
     )
 )
 
@@ -89,6 +92,10 @@ SCHEDULE_START = date(
 )
 
 ADMIN_CONTACT = "@addvk39"
+
+TARGETS_PATH = Path(
+    "promo_targets.json"
+)
 
 
 CHANNELS = [
@@ -298,6 +305,147 @@ def stable_cooldown_days(
     )
 
 
+def entity_of_item(
+    item
+):
+    if isinstance(
+        item,
+        str
+    ):
+        return item.lower()
+
+    if isinstance(
+        item,
+        dict
+    ):
+        return str(
+            item.get(
+                "entity",
+                item.get(
+                    "target",
+                    ""
+                )
+            )
+        ).lower()
+
+    return ""
+
+
+def mark_target_inactive(
+    target_name,
+    destination,
+    reason
+):
+    """
+    Убирает площадку из активных direct-секций
+    и сохраняет причину для последующей проверки.
+    """
+
+    try:
+        data = json.loads(
+            TARGETS_PATH.read_text(
+                encoding="utf-8"
+            )
+        )
+    except Exception as exc:
+        print(
+            "  ⚠ не удалось обновить статус площадки:",
+            repr(exc)
+        )
+        return
+
+
+    key = target_name.lower()
+    found = None
+
+    for section_name in (
+        "direct",
+        "auto_discovered_direct",
+    ):
+        section = data.setdefault(
+            section_name,
+            []
+        )
+
+        for raw in list(section):
+            if entity_of_item(raw) == key:
+                found = raw
+                section.remove(raw)
+                break
+
+        if found is not None:
+            break
+
+
+    if found is None:
+        return
+
+
+    if isinstance(
+        found,
+        dict
+    ):
+        item = dict(found)
+    else:
+        item = {
+            "entity": found,
+            "source": "runtime",
+        }
+
+
+    item[
+        "runtime_checked_at"
+    ] = datetime.now(
+        timezone.utc
+    ).isoformat()
+
+    item[
+        "reason"
+    ] = reason
+
+
+    dest = data.setdefault(
+        destination,
+        []
+    )
+
+    if not any(
+        entity_of_item(existing)
+        == key
+        for existing in dest
+    ):
+        dest.append(
+            item
+        )
+
+
+    tmp = TARGETS_PATH.with_suffix(
+        ".json.tmp"
+    )
+
+    tmp.write_text(
+        json.dumps(
+            data,
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "
+",
+        encoding="utf-8",
+    )
+
+    tmp.replace(
+        TARGETS_PATH
+    )
+
+    print(
+        "  ↪ площадка перемещена в",
+        destination,
+        "|",
+        reason
+    )
+
+
 def normalize_target(
     item,
     *,
@@ -353,9 +501,7 @@ def normalize_target(
 
 def load_targets():
     data = json.loads(
-        Path(
-            "promo_targets.json"
-        ).read_text(
+        TARGETS_PATH.read_text(
             encoding="utf-8"
         )
     )
@@ -512,6 +658,12 @@ async def rules_still_allow(
             "медицинскую/фармацевтическую тематику"
         )
 
+        mark_target_inactive(
+            target_cfg["entity"],
+            "disabled",
+            "rules prohibit medical/pharma promotion"
+        )
+
         return False
 
 
@@ -523,6 +675,21 @@ async def rules_still_allow(
             "или требуют обращения к администратору"
         )
 
+        destination = (
+            "admin_only"
+            if matches(
+                rules_text,
+                ADMIN_ONLY_PATTERNS
+            )
+            else "disabled"
+        )
+
+        mark_target_inactive(
+            target_cfg["entity"],
+            destination,
+            "direct advertising is blocked or admin-only"
+        )
+
         return False
 
 
@@ -532,6 +699,12 @@ async def rules_still_allow(
         print(
             "  ✗ нет явного разрешения "
             "самостоятельной рекламы/ссылок"
+        )
+
+        mark_target_inactive(
+            target_cfg["entity"],
+            "needs_review",
+            "explicit direct advertising permission not confirmed"
         )
 
         return False
@@ -848,6 +1021,17 @@ async def join_target(
         except errors.UserAlreadyParticipantError:
             return False
 
+        except errors.InviteRequestSentError:
+            NEW_JOINS_THIS_RUN += 1
+
+            print(
+                "  ⏳ отправлена заявка на вступление "
+                f"({NEW_JOINS_THIS_RUN}/"
+                f"{MAX_NEW_JOINS_PER_RUN} за запуск)"
+            )
+
+            raise
+
         except errors.FloodWaitError as exc:
             seconds = int(
                 exc.seconds
@@ -1065,19 +1249,10 @@ async def publish_one(
             and sender_id != expected_sender
         ):
             print(
-                "  ⚠ Telegram отправил сообщение "
-                "не от ожидаемого отправителя"
+                "  ⚠ Telegram выбрал другую "
+                "доступную identity отправителя; "
+                "проверяем сам факт публикации"
             )
-
-            try:
-                await client.delete_messages(
-                    target,
-                    [msg.id]
-                )
-            except Exception:
-                pass
-
-            return False
 
 
         print(
@@ -1099,6 +1274,12 @@ async def publish_one(
                 "площадку не считаем успешной"
             )
 
+            mark_target_inactive(
+                target_name,
+                "needs_review",
+                "message removed shortly after publication"
+            )
+
             return False
 
 
@@ -1118,6 +1299,19 @@ async def publish_one(
     ):
         raise
 
+    except errors.InviteRequestSentError:
+        print(
+            "  ⏳ группа требует одобрения заявки"
+        )
+
+        mark_target_inactive(
+            target_name,
+            "needs_review",
+            "join request requires administrator approval"
+        )
+
+        return False
+
     except (
         errors.ChatWriteForbiddenError,
         errors.ChannelPrivateError,
@@ -1126,6 +1320,13 @@ async def publish_one(
         print(
             "  ✗ писать нельзя:",
             type(exc).__name__
+        )
+
+        mark_target_inactive(
+            target_name,
+            "disabled",
+            "write access unavailable: "
+            + type(exc).__name__
         )
 
         return False

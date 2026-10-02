@@ -41,7 +41,7 @@ case "$MODE" in
     export DRY_RUN="false"
     export PROMO_PAUSE_MIN="${PROMO_PAUSE_MIN:-55}"
     export PROMO_PAUSE_MAX="${PROMO_PAUSE_MAX:-85}"
-    export MAX_NEW_JOINS_PER_RUN="${MAX_NEW_JOINS_PER_RUN:-4}"
+    export MAX_NEW_JOINS_PER_RUN="${MAX_NEW_JOINS_PER_RUN:-3}"
     export PROMO_RUN_SLOT="$(TZ=Europe/Moscow date +%H)"
     exec "$PY" -u promo_channels.py
     ;;
