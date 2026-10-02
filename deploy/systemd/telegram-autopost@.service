@@ -6,6 +6,7 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 WorkingDirectory=/opt/telegram-autopost
+StateDirectory=telegram-autopost
 EnvironmentFile=-/etc/telegram-autopost.env
 ExecStart=/usr/local/bin/telegram-autopost-run %i
 TimeoutStartSec=55min

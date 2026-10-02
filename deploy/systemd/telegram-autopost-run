@@ -28,6 +28,15 @@ done
 [[ "$need_tg" -eq 0 ]] || exit 0
 
 PY="$APP/venv/bin/python"
+
+export PROMO_TARGETS_FILE="${PROMO_TARGETS_FILE:-/var/lib/telegram-autopost/promo_targets.json}"
+
+if [[ ! -s "$PROMO_TARGETS_FILE" ]]; then
+  mkdir -p "$(dirname "$PROMO_TARGETS_FILE")"
+  cp "$APP/promo_targets.json" "$PROMO_TARGETS_FILE"
+  chmod 600 "$PROMO_TARGETS_FILE"
+fi
+
 case "$MODE" in
   main)
     export DELAY_MIN_SECONDS="${DELAY_MIN_SECONDS:-45}"
