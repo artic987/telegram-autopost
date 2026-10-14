@@ -44,9 +44,28 @@ async def main():
                 matches.append(dialog)
         print("Найденные похожие чаты:", [(d.name, d.id) for d in matches], flush=True)
         exact = [d for d in matches if normalize(d.name) == TARGET_NORM]
-        if len(exact) != 1:
-            raise RuntimeError("Нужна одна точная группа АНАБОЛИКИ.net «ЧАТ»; найдено: " + repr([(d.name, d.id) for d in matches]))
-        dialog = exact[0]
+        if not exact:
+            raise RuntimeError("Группа АНАБОЛИКИ.net «ЧАТ» не найдена")
+        if len(exact) > 1:
+            from telethon.tl.functions.channels import GetFullChannelRequest
+            counts = []
+            for candidate in exact:
+                try:
+                    info = await client(GetFullChannelRequest(candidate.entity))
+                    count = getattr(info.full_chat, "participants_count", 0) or 0
+                except Exception as exc:
+                    print("Ошибка определения количества:", candidate.id, repr(exc), flush=True)
+                    count = 0
+                counts.append((candidate, count))
+                print("Одинаковое название:", candidate.name, "id:", candidate.id, "участников:", count, flush=True)
+            closest = sorted(counts, key=lambda item: abs(item[1] - 2665))
+            if len(closest) > 1 and (closest[0][1] <= 0 or abs(closest[0][1] - 2665) >= abs(closest[1][1] - 2665)):
+                raise RuntimeError("Не удалось однозначно отличить одноимённые группы по численности")
+            if abs(closest[0][1] - 2665) > 150:
+                raise RuntimeError("Нет группы с числом участников, похожим на 2665")
+            dialog = closest[0][0]
+        else:
+            dialog = exact[0]
         print("Выбран чат:", dialog.name, dialog.id, flush=True)
         members = {}
         member_error = ""
