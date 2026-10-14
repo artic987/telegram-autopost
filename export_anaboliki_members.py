@@ -78,6 +78,20 @@ async def main():
             member_error = str(exc)
             print("Ограничение API участников:", member_error, flush=True)
         api_count = len(members)
+        search_added = 0
+        search_queries = ("а", "е", "и", "о", "н", "р", "т", "м", "s", "a", "i", "o", "e", "1", "0")
+        for q in search_queries:
+            try:
+                added = 0
+                async for member in client.iter_participants(dialog.entity, search=q):
+                    if isinstance(member, User) and member.id not in members:
+                        members[member.id] = record(member, "Поиск участников (API)")
+                        added += 1
+                search_added += added
+                print("Поиск", repr(q), "добавлено:", added, "всего:", len(members), flush=True)
+            except (errors.ChatAdminRequiredError, errors.ChannelPrivateError, errors.FloodWaitError) as exc:
+                print("Поиск ограничен:", repr(exc), flush=True)
+                break
         scanned = 0
         history_error = ""
         try:
