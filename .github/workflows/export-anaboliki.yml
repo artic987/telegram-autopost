@@ -1,0 +1,36 @@
+name: Export ANABOLIKI chat members
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: telegram-autopost
+  cancel-in-progress: false
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install telethon
+      - name: Export accessible Telegram participants and message authors
+        env:
+          TG_API_ID: ${{ secrets.TG_API_ID }}
+          TG_API_HASH: ${{ secrets.TG_API_HASH }}
+          TG_STRING_SESSION: ${{ secrets.TG_STRING_SESSION }}
+        run: python export_anaboliki_members.py
+      - name: Archive CSV and summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: anaboliki-members
+          path: anaboliki_members_export/
+          retention-days: 3
+          if-no-files-found: warn
